@@ -485,6 +485,9 @@ input[type=date].input::-webkit-date-and-time-value{text-align:left;margin:0}
 input[type=date].input::-webkit-calendar-picker-indicator{opacity:.6}
 .cl-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 @media (max-width:760px){
+  .top .spacer{display:none}
+  .gsearch{max-width:none;min-width:0}
+  .gres{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:calc(62px + env(safe-area-inset-top,0px));max-height:70vh;z-index:40}
   .modal .g2,.modal .g3,.drawer .g2,.drawer .g3,.cl-grid{grid-template-columns:minmax(0,1fr)}
   .modal .input,.modal select.input,.drawer .input,.drawer select.input{height:44px;font-size:16px}
   .modal .btn,.drawer .dr-f .btn{height:40px}
@@ -613,7 +616,7 @@ const glyph=c=>`<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strok
 const fotoSrc=p=>p.fotoUrl||p.foto;
 const photo=(p,cls='')=>{const u=fotoSrc(p);return `<div class="ph ${cls}">${u?`<img src="${esc(u)}" alt="" onerror="this.remove()">`:glyph(p.cat)}</div>`};
 
-const S={settings:{gas:6.29,kmL:11,markup:3,reinvest:30,dropDay:4,stale:30,inicial:600,home:'Asa Norte',confirmed:true},brechos:[],garimpos:[],drops:[],pecas:[]};
+const S={settings:{gas:6.29,kmL:11,markup:3,reinvest:30,dropDay:4,stale:30,inicial:600,home:'Asa Norte',confirmed:true},brechos:[],garimpos:[],drops:[],pecas:[],despesas:[]};
 const B=id=>S.brechos.find(b=>b.id===id);
 const G=id=>S.garimpos.find(g=>g.id===id);
 const P=id=>S.pecas.find(p=>p.id===id);
@@ -639,7 +642,12 @@ const pecasDe=g=>S.pecas.filter(p=>p.garimpoId===g.id);
 const gGas=g=>gasCost(g.km);
 const gPago=g=>sum(pecasDe(g),p=>p.pago||0);
 function gasShare(p){const g=G(p.garimpoId);if(!g)return 0;const t=gPago(g);return t?gGas(g)*(p.pago||0)/t:0}
-const custo=p=>(p.pago||0)+gasShare(p);
+const DCATS=['Embalagem','Costura e ajustes','Lavagem','Etiquetas e tags','Fotos e anúncios','Outros'];
+const DCAT_HINT={'Embalagem':'sacolas, caixas, fitas, papel de seda','Costura e ajustes':'costureira, linha, botões, zíper','Lavagem':'lavanderia, sabão, tira-manchas','Etiquetas e tags':'etiquetas, tags, cartões','Fotos e anúncios':'impulsionamento, cenário, acessórios de foto','Outros':''};
+const gastosPeca=p=>S.despesas.filter(d=>d.pecaId===p.id);
+const extraPeca=p=>sum(gastosPeca(p),d=>d.valor||0);
+const custo=p=>(p.pago||0)+gasShare(p)+extraPeca(p);
+const despGerais=()=>S.despesas.filter(d=>!d.pecaId);
 const sugestao=p=>round5(custo(p)*S.settings.markup);
 const lucro=p=>p.venda?p.venda.valor-custo(p):(p.preco!=null?p.preco-custo(p):null);
 const reposicao=p=>{const l=lucro(p);return custo(p)+Math.max(0,l)*S.settings.reinvest/100};
@@ -663,13 +671,15 @@ const DSL={prep:'Em preparação',ar:'No ar',ant:'Anterior'};
 const dPill=d=>{const s=dStatus(d);return `<span class="dpill ${s}">${s==='ar'?'<i></i>':''}${DSL[s]}</span>`};
 const pecasDrop=d=>d?S.pecas.filter(p=>p.dropId===d.id):[];
 function dStats(d){const ps=pecasDrop(d),v=ps.filter(p=>p.venda);const gs=S.garimpos.filter(g=>g.dropId===d.id);
-  const inv=sum(ps,p=>p.pago||0)+sum(gs,gGas);const rec=sum(v,p=>p.venda.valor);const luc=sum(v,lucro);
-  return{ps,v,gs,inv,rec,luc,st:ps.length?v.length/ps.length:0,inc:ps.filter(isInc),pot:sum(ps.filter(p=>!p.venda),p=>p.preco||0),
+  const desp=sum(despGerais().filter(x=>x.dropId===d.id),x=>x.valor||0);
+  const inv=sum(ps,p=>p.pago||0)+sum(gs,gGas)+sum(ps,extraPeca)+desp;const rec=sum(v,p=>p.venda.valor);const luc=sum(v,lucro);
+  return{ps,v,gs,inv,rec,luc,desp,liq:luc-desp,st:ps.length?v.length/ps.length:0,inc:ps.filter(isInc),pot:sum(ps.filter(p=>!p.venda),p=>p.preco||0),
     dias:v.length?sum(v,p=>diff(d.data,p.venda.data))/v.length:null}}
 function lastDropDate(){const l=liveDrop();return l?l.data:addDays(TODAY,-7)}
 function ledger(){
   const rows=[];
   S.pecas.filter(p=>p.venda).forEach(p=>rows.push({data:p.venda.data,tipo:'venda',desc:`Venda ${p.code} · ${p.nome}`,id:p.id,v:reposicao(p)}));
+  S.despesas.forEach(d=>rows.push({data:d.data,tipo:'despesa',desc:`${d.cat} · ${d.desc||'sem descrição'}`,did:d.id,v:-(d.valor||0)}));
   S.garimpos.forEach(g=>rows.push({data:g.data,tipo:'garimpo',desc:`Garimpo · ${g.brechoIds.map(i=>B(i)?.nome).join(', ')}`,gid:g.id,v:-(gPago(g)+gGas(g)),gas:gGas(g),pecas:gPago(g)}));
   rows.sort((a,b)=>a.data.localeCompare(b.data)||(a.tipo==='garimpo'?1:-1));
   let s=S.settings.inicial;rows.forEach(r=>{s+=r.v;r.saldo=s});return rows;
@@ -733,6 +743,7 @@ const I={
  drops:'<path d="M4 7.5L12 4l8 3.5-8 3.5z"/><path d="M4 12l8 3.5 8-3.5"/><path d="M4 16.5L12 20l8-3.5"/>',
  pecas:'<path d="M9 4l-5 3 2 4 3-2v11h10V9l3 2 2-4-5-3c-1 2-2.5 3-5 3S10 6 9 4z"/>',
  vendas:'<path d="M5 8h14l-1.2 11.5H6.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
+ despesas:'<path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z"/><path d="M9 8h6M9 11.5h6M9 15h3.5"/>',
  caixa:'<rect x="3.5" y="6" width="17" height="13" rx="2"/><path d="M3.5 10h17"/><circle cx="16" cy="14.5" r="1.2"/>',
  brechos:'<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
  relatorios:'<path d="M5 20V10M12 20V4M19 20v-7"/>',
@@ -759,7 +770,7 @@ const ui={
   phonePreview:false,forceDesk:false,
   m:{screen:'home',g:null,cat:null,tmp:null,nb:null,nome:'',pago:''}
 };
-const NAV=[['painel','Painel'],['drops','Drops'],['pecas','Peças'],['vendas','Vendas'],['caixa','Caixa'],['brechos','Brechós'],['relatorios','Relatórios'],['ajustes','Ajustes']];
+const NAV=[['painel','Painel'],['drops','Drops'],['pecas','Peças'],['vendas','Vendas'],['caixa','Caixa'],['despesas','Despesas'],['brechos','Brechós'],['relatorios','Relatórios'],['ajustes','Ajustes']];
 function curRoute(){const h=location.hash.slice(1);if(/^drop-\d+$/.test(h))return h;return NAV.some(n=>n[0]===h)?h:'painel'}
 const isPhone=()=>innerWidth<760&&!ui.forceDesk;
 
@@ -796,7 +807,8 @@ function vPainel(){
   </div>`;
   const mes=TODAY.slice(0,7),pm=d2s(new Date(today.getFullYear(),today.getMonth()-1,15)).slice(0,7);
   const vm=S.pecas.filter(p=>p.venda&&p.venda.data.startsWith(mes)),vpm=S.pecas.filter(p=>p.venda&&p.venda.data.startsWith(pm));
-  const lm=sum(vm,lucro),lpm=sum(vpm,lucro);
+  const dm=sum(despGerais().filter(x=>x.data.startsWith(mes)),x=>x.valor||0),dpm=sum(despGerais().filter(x=>x.data.startsWith(pm)),x=>x.valor||0);
+  const lm=sum(vm,lucro)-dm,lpm=sum(vpm,lucro)-dpm;
   const ld=lastDropDate(),ciclo=S.pecas.filter(p=>p.venda&&p.venda.data>=ld);
   const stock=S.pecas.filter(p=>p.status!=='vendida'&&entry(p)<=TODAY);
   const stale=S.pecas.filter(isStale).sort((a,b)=>entry(a).localeCompare(entry(b)));
@@ -815,21 +827,21 @@ function vPainel(){
   let liveCard='';
   if(live){const s=dStats(live);const nr=s.ps.filter(p=>p.status==='reservada').length;liveCard=`<div class="card card-p stack">
       <div class="sec-h" style="margin:0"><div class="row" style="gap:10px"><h2>Drop ${live.n}</h2>${dPill(live)}</div><span class="muted">lançado ${fDow(live.data)}</span></div>
-      <div class="meta"><span><b>${s.v.length}</b> de ${s.ps.length} vendidas</span><span><b>${nr}</b> reservada${nr===1?'':'s'}</span><span>Receita <b>${brl0(s.rec)}</b></span><span>Lucro <b>${brl0(s.luc)}</b></span></div>
+      <div class="meta"><span><b>${s.v.length}</b> de ${s.ps.length} vendidas</span><span><b>${nr}</b> reservada${nr===1?'':'s'}</span><span>Receita <b>${brl0(s.rec)}</b></span><span>Lucro <b>${brl0(s.liq)}</b></span></div>
       <div class="prog"><b style="width:${s.st*100}%"></b><b style="width:${nr/Math.max(1,s.ps.length)*100}%"></b></div>
       <div class="row" style="justify-content:space-between"><div class="legend"><span><i></i>vendidas</span><span><i class="m"></i>reservadas</span></div><a class="btn sm" href="#drop-${live.n}">Ver drop ${live.n}</a></div></div>`}
   const att=[...res.map(p=>({p,t:'Reservada · cobrar a cliente',a:`<button class="btn sm" data-a="openPeca" data-id="${p.id}">Abrir</button>`})),...stale.map(p=>({p,t:`Parada há ${diff(entry(p),TODAY)} dias`,a:`<button class="btn sm" data-a="applyMd" data-id="${p.id}">Baixar para ${brl0(markdown(p))}</button>`}))].slice(0,7);
   return head(`${cap(DOW[today.getDay()])}, ${today.getDate()} de ${MESL[today.getMonth()]}`,prep?`Drop ${prep.n} vai ao ar ${DOW[s2d(prep.data).getDay()]}, ${fDay(prep.data)} (${rel(prep.data)}).`:'',`<button class="btn" data-a="phoneOpen">${ic('phone')}Cadastro no celular</button>`)+`
   ${settingsCallout()}<div class="kpis">
     ${kpi('Caixa para o próximo garimpo',brl0(caixa()),`inclui ${brl0(sum(ciclo,reposicao))} das vendas desta semana`,{hl:1,icon:'caixa'})}
-    ${kpi(`Lucro em ${MESL[today.getMonth()]}`,brl0(lm),lpm?`${lm>=lpm?'+':''}${pct((lm-lpm)/Math.abs(lpm))} vs ${MESL[(today.getMonth()+11)%12]} inteiro`:'',{icon:'relatorios'})}
+    ${kpi(`Lucro líquido em ${MESL[today.getMonth()]}`,brl0(lm),dm?`já descontados ${brl0(dm)} de materiais`:lpm?`${lm>=lpm?'+':''}${pct((lm-lpm)/Math.abs(lpm))} vs ${MESL[(today.getMonth()+11)%12]} inteiro`:'',{icon:'relatorios'})}
     ${kpi('Vendas desde o último drop',String(ciclo.length),`${brl0(sum(ciclo,p=>p.venda.valor))} vendidos desde ${fDay(ld)}`,{icon:'vendas'})}
     ${kpi('À venda agora',String(stock.length),`${brl0(sum(stock,p=>p.preco||0))} em preço de venda`,{icon:'pecas'})}
   </div>
   <div class="dash">
     <div class="stack" style="gap:18px">
       ${prepCard}${liveCard}
-      <div class="card card-p"><div class="sec-h"><h2>Lucro por drop</h2><span class="muted">R$, peças vendidas de cada drop</span></div><div style="overflow-x:auto">${barChart(chartDrops.map(d=>({label:'#'+d.n,v:dStats(d).luc,hl:d.id===live?.id})),{aria:'Lucro por drop'})}</div></div>
+      <div class="card card-p"><div class="sec-h"><h2>Lucro por drop</h2><span class="muted">R$, peças vendidas de cada drop</span></div><div style="overflow-x:auto">${barChart(chartDrops.map(d=>({label:'#'+d.n,v:dStats(d).liq,hl:d.id===live?.id})),{aria:'Lucro por drop'})}</div></div>
     </div>
     <div class="stack" style="gap:18px">
       <div class="card card-p"><div class="sec-h"><h2>Precisa de atenção</h2><span class="muted">${att.length}</span></div>
@@ -847,7 +859,7 @@ function vDrops(){
     <div class="dm">${strip(s.ps,8)}</div>
     <div class="sv">${stt==='prep'?`<div class="row"><span><b style="color:var(--fg)">${s.ps.length-s.inc.length}/${s.ps.length}</b> prontas</span><span>${s.inc.length?s.inc.length+' a completar':'pronto'}</span></div><div class="prog"><b style="width:${(s.ps.length-s.inc.length)/Math.max(1,s.ps.length)*100}%"></b></div>`:`<div class="row"><span><b style="color:var(--fg)">${s.v.length}/${s.ps.length}</b> vendidas</span><span>${pct(s.st)}</span></div><div class="prog"><b style="width:${s.st*100}%"></b></div>`}</div>
     <div class="money r2"><b>${brl0(stt==='prep'?s.inv:s.rec)}</b><small>${stt==='prep'?'investido':'receita'}</small></div>
-    <div class="money"><b class="${stt==='prep'?'':s.luc>=0?'pos':'neg'}">${stt==='prep'?brl0(s.pot):brl0(s.luc)}</b><small>${stt==='prep'?'em preço de venda':'lucro'}</small></div>
+    <div class="money"><b class="${stt==='prep'?'':s.liq>=0?'pos':'neg'}">${stt==='prep'?brl0(s.pot):brl0(s.liq)}</b><small>${stt==='prep'?'em preço de venda':'lucro líquido'}</small></div>
     ${ic('chev')}</a>`};
   return head('Drops',`Um drop por semana, toda ${DOW[+S.settings.dropDay]}. As peças de cada garimpo entram no próximo drop.`,`<button class="btn" data-a="dropNew">${ic('plus',2)}Novo drop</button>`)+(ds.length?`<div class="drops">${ds.map(row).join('')}</div>`:`<div class="empty">Nenhum drop ainda. Crie um em Novo drop, ou ele é criado sozinho quando você salva um garimpo pelo celular.</div>`);
 }
@@ -858,12 +870,12 @@ function vDrop(n){
   const idx=dropsSorted();const i=idx.indexOf(d);const newer=idx[i-1],older=idx[i+1];
   const prontas=ps.filter(p=>col(p)==='estoque');
   const navb=(x,lab,icn)=>x?`<a class="btn icon" href="#drop-${x.n}" aria-label="${lab}" title="${lab}: Drop ${x.n}">${ic(icn)}</a>`:`<span class="btn icon" style="opacity:.35" aria-hidden="true">${ic(icn)}</span>`;
-  let actions=navb(older,'Drop anterior','back')+navb(newer,'Drop seguinte','chev')+`<button class="btn" data-a="dropEdit" data-id="${d.id}">Editar drop</button>`;
+  let actions=navb(older,'Drop anterior','back')+navb(newer,'Drop seguinte','chev')+`<button class="btn" data-a="dropEdit" data-id="${d.id}">Editar drop</button><button class="btn" data-a="despNew" data-drop="${d.id}">${ic('despesas')}Gasto</button>`;
   if(s.inc.length)actions+=`<button class="btn" data-a="openPeca" data-id="${s.inc[0].id}" data-list="inc:${d.id}">Completar ${s.inc.length} peça${s.inc.length>1?'s':''}</button>`;
   if(prontas.length)actions+=`<button class="btn pri" data-a="launch" data-id="${d.id}">${stt==='prep'?'Lançar drop':'Anunciar'} · ${prontas.length} prontas</button>`;
   const kp=stt==='prep'
-    ?kpi('Peças',String(ps.length),`${ps.length-s.inc.length} prontas · ${s.inc.length} a completar`)+kpi('Investido',brl0(s.inv),`${brl0(sum(ps,p=>p.pago||0))} em peças + ${brl0(sum(s.gs,gGas))} de gasolina`)+kpi('Preço total',brl0(s.pot),'se vender tudo pelo preço')+kpi('Lucro previsto',brl0(sum(ps.filter(p=>p.preco),lucro)),'nas peças que já têm preço',{cls:'pos'})
-    :kpi('Vendidas',`${s.v.length} de ${ps.length}`,`${pct(s.st)} do drop${s.dias!=null?` · ${s.dias.toFixed(1)} dias em média`:''}`)+kpi('Receita',brl0(s.rec),`${brl0(s.pot)} ainda à venda`)+kpi('Investido',brl0(s.inv),`peças + gasolina`)+kpi('Lucro',brl0(s.luc),`ROI ${pct(s.luc/Math.max(1,sum(s.v,custo)))} nas vendidas`,{cls:s.luc>=0?'pos':'neg'});
+    ?kpi('Peças',String(ps.length),`${ps.length-s.inc.length} prontas · ${s.inc.length} a completar`)+kpi('Investido',brl0(s.inv),`${brl0(sum(ps,p=>p.pago||0))} peças · ${brl0(sum(s.gs,gGas))} gasolina${s.desp+sum(ps,extraPeca)?` · ${brl0(s.desp+sum(ps,extraPeca))} materiais`:''}`)+kpi('Preço total',brl0(s.pot),'se vender tudo pelo preço')+kpi('Lucro previsto',brl0(sum(ps.filter(p=>p.preco),lucro)),'nas peças que já têm preço',{cls:'pos'})
+    :kpi('Vendidas',`${s.v.length} de ${ps.length}`,`${pct(s.st)} do drop${s.dias!=null?` · ${s.dias.toFixed(1)} dias em média`:''}`)+kpi('Receita',brl0(s.rec),`${brl0(s.pot)} ainda à venda`)+kpi('Investido',brl0(s.inv),`peças, gasolina e materiais`)+kpi('Lucro líquido',brl0(s.liq),s.desp?`${brl0(s.luc)} das vendas − ${brl0(s.desp)} de materiais`:`ROI ${pct(s.luc/Math.max(1,sum(s.v,custo)))} nas vendidas`,{cls:s.liq>=0?'pos':'neg'});
   const cols=[['completar','A completar','sem preço, tamanho ou categoria'],['estoque','Prontas','cadastradas, não anunciadas'],['anunciada','Anunciadas','postadas no Instagram'],['reservada','Reservadas','cliente pediu para separar'],['vendida','Vendidas','']];
   let body='';
   if(ui.dt==='quadro'){
@@ -944,16 +956,50 @@ function vVendas(){
   <tfoot><tr><td colspan="5">${v.length} vendas</td><td class="r">${brl(rec)}</td><td class="r">${brl(sum(v,custo))}</td><td class="r">${brl(luc)}</td><td class="r">${brl(rep)}</td><td></td></tr></tfoot></table></div>`:`<div class="empty">Nenhuma venda nesse período.</div>`}`;
 }
 
+function vDespesas(){
+  const today=s2d(TODAY);
+  const P2={mes:[cap(MESL[today.getMonth()]),TODAY.slice(0,8)+'01'],tres:['Últimos 90 dias',addDays(TODAY,-90)],tudo:['Tudo','0000']};
+  const vp=P2[ui.dp]?ui.dp:'mes',from=P2[vp][1];
+  let a=S.despesas.filter(d=>d.data>=from);if(ui.dc)a=a.filter(d=>d.cat===ui.dc);
+  a=a.sort((x,y)=>y.data.localeCompare(x.data));
+  const all=S.despesas.filter(d=>d.data>=from);
+  const vend=S.pecas.filter(p=>p.venda&&p.venda.data>=from).length;
+  const emb=sum(all.filter(d=>d.cat==='Embalagem'),d=>d.valor||0);
+  const byCat=DCATS.map(c=>({c,v:sum(all.filter(d=>d.cat===c),d=>d.valor||0)})).filter(x=>x.v>0).sort((x,y)=>y.v-x.v);const mx=Math.max(1,...byCat.map(x=>x.v));
+  const lig=d=>d.pecaId?(P(d.pecaId)?`Peça ${P(d.pecaId).code}`:'Peça excluída'):d.dropId&&D(d.dropId)?`Drop ${D(d.dropId).n}`:'Geral';
+  return head('Despesas','Materiais e serviços: embalagem, costura, lavagem e outros. Tudo sai do caixa e entra no cálculo do lucro.',`<button class="btn pri" data-a="despNew">${ic('plus',2)}Novo gasto</button>`)+`
+  <div class="toolbar"><div class="seg">${Object.entries(P2).map(([k,[l]])=>`<button class="${vp===k?'on':''}" data-a="dp" data-v="${k}">${l}</button>`).join('')}</div></div>
+  <div class="kpis">${kpi('Total no período',brl0(sum(all,d=>d.valor||0)),`${all.length} gasto${all.length===1?'':'s'}`,{hl:1,icon:'despesas'})}${kpi('Embalagem por venda',vend?brl(emb/vend):'—',`${brl0(emb)} em embalagem · ${vend} venda${vend===1?'':'s'}`)}${kpi('Em peças específicas',brl0(sum(all.filter(d=>d.pecaId),d=>d.valor||0)),'entra no custo de cada peça')}${kpi('Gerais e dos drops',brl0(sum(all.filter(d=>!d.pecaId),d=>d.valor||0)),'desconta do lucro do drop')}</div>
+  ${byCat.length?`<div class="card card-p" style="margin-bottom:22px"><div class="sec-h"><h2>Por categoria</h2></div><div class="stack" style="gap:10px">${byCat.map(x=>`<div class="row nowrap" style="gap:12px"><span style="width:150px;flex:none;font-size:13px">${x.c}</span><div class="bar" style="flex:1"><b style="width:${x.v/mx*100}%"></b></div><span class="num" style="width:90px;text-align:right;font-size:13px">${brl(x.v)}</span></div>`).join('')}</div></div>`:''}
+  <div class="toolbar"><button class="chip ${!ui.dc?'on':''}" data-a="dc" data-v="">Todas</button>${DCATS.map(c=>`<button class="chip ${ui.dc===c?'on':''}" data-a="dc" data-v="${c}">${c}</button>`).join('')}</div>
+  ${a.length?`<div class="tw"><table class="t"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Ligado a</th><th class="r">Valor</th></tr></thead><tbody>${a.map(d=>`<tr class="click" data-a="despEdit" data-id="${d.id}"><td>${fDow(d.data)}</td><td><b style="font-weight:500">${esc(d.desc||'—')}</b></td><td class="muted">${esc(d.cat)}</td><td class="muted">${lig(d)}</td><td class="r"><b>${brl(d.valor)}</b></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4">${a.length} gastos</td><td class="r">${brl(sum(a,d=>d.valor||0))}</td></tr></tfoot></table></div>`:`<div class="empty">Nenhum gasto nesse período. Use Novo gasto para registrar sacolas, caixas, costura, lavagem…</div>`}
+  <div class="callout" style="margin-top:22px">${ic('info')}<p><b>Como cada gasto é contado.</b> Ligado a uma <b>peça</b> (costureira, lavanderia daquela peça): soma no custo real dela e no preço sugerido. Ligado a um <b>drop</b> (sacolas e fitas daquela semana): desconta do lucro do drop. <b>Geral</b> (estoque de caixas, máquina de costura): desconta do lucro do mês. Em todos os casos o valor sai do caixa de reposição.</p></div>`;
+}
+function despModal(){
+  const f=ui.dsp,d=f.id?S.despesas.find(x=>x.id===f.id):null;
+  const pecas=S.pecas.filter(p=>!p.venda||p.id===f.pecaId).sort((a,b)=>b.code.localeCompare(a.code));
+  return `<div class="m-h"><b>${d?'Editar gasto':'Novo gasto'}</b><button class="x" data-a="closeModal" aria-label="Fechar">${ic('x')}</button></div><div class="m-b">
+  <div class="fld"><span class="lbl">Categoria</span><div class="row">${DCATS.map(c=>`<button class="chip ${f.cat===c?'on':''}" data-a="dspCat" data-v="${c}">${c}</button>`).join('')}</div>${DCAT_HINT[f.cat]?`<span class="hint">${DCAT_HINT[f.cat]}</span>`:''}</div>
+  <div class="fld"><label for="ds-desc">Descrição</label><input class="input" id="ds-desc" value="${esc(f.desc||'')}" placeholder="Ex.: 50 sacolas kraft" autocomplete="off"></div>
+  <div class="g2"><div class="fld"><label for="ds-valor">Valor</label><div class="affix"><span>R$</span><input class="input num" id="ds-valor" inputmode="decimal" value="${f.valor??''}"></div></div>
+  <div class="fld"><label for="ds-data">Data</label><input class="input" id="ds-data" type="date" value="${f.data}"></div></div>
+  <div class="fld"><span class="lbl">Ligado a</span><div class="seg" style="display:flex">${[['drop','Um drop'],['peca','Uma peça'],['geral','Geral']].map(([k,l])=>`<button style="flex:1" class="${f.tipo===k?'on':''}" data-a="dspTipo" data-v="${k}">${l}</button>`).join('')}</div></div>
+  ${f.tipo==='drop'?`<div class="fld"><label for="ds-drop">Drop</label><select class="input" id="ds-drop">${dropsSorted().map(x=>`<option value="${x.id}" ${f.dropId===x.id?'selected':''}>${esc(dlabel(x))}</option>`).join('')||'<option value="">Nenhum drop ainda</option>'}</select><span class="hint">Desconta do lucro desse drop.</span></div>`
+   :f.tipo==='peca'?`<div class="fld"><label for="ds-peca">Peça</label><select class="input" id="ds-peca"><option value="">Escolher peça</option>${pecas.map(p=>`<option value="${p.id}" ${f.pecaId===p.id?'selected':''}>${esc(p.code+' · '+p.nome)}</option>`).join('')}</select><span class="hint">Soma no custo real da peça.</span></div>`
+   :`<span class="hint">Desconta do lucro do mês, sem ligar a um drop.</span>`}
+  ${d?`<div style="border-top:1px solid var(--line);padding-top:14px">${ui.dspDel?`<div class="row"><span>Excluir este gasto?</span><button class="btn sm danger" data-a="despDelOk">Excluir</button><button class="btn sm ghost" data-a="despDelNo">Cancelar</button></div>`:`<button class="btn sm ghost danger" data-a="despDelAsk">${ic('trash')}Excluir gasto</button>`}</div>`:''}
+  </div><div class="m-f"><button class="btn ghost" data-a="closeModal">Cancelar</button><button class="btn pri" data-a="despSave">Salvar gasto</button></div>`;
+}
 function vCaixa(){
   const L=ledger(),tot=caixa(),ld=lastDropDate();
   const ciclo=S.pecas.filter(p=>p.venda&&p.venda.data>=ld);
   const ent=sum(L.filter(r=>r.v>0),r=>r.v),sai=-sum(L.filter(r=>r.v<0),r=>r.v);
-  return head('Caixa de reposição','O dinheiro separado para comprar peças. Entra a cada venda, sai a cada garimpo.')+`
-  <div class="kpis">${kpi('Saldo disponível',brl0(tot),'orçamento do próximo garimpo',{hl:1,icon:'caixa'})}${kpi('Separar desta semana',brl0(sum(ciclo,reposicao)),`${ciclo.length} vendas desde ${fDay(ld)}`)}${kpi('Total que entrou',brl0(ent),'reposição das vendas')}${kpi('Gasto em garimpos',brl0(sai),'peças + gasolina')}</div>
+  return head('Caixa de reposição','O dinheiro separado para comprar peças e materiais. Entra a cada venda, sai a cada garimpo e a cada gasto.')+`
+  <div class="kpis">${kpi('Saldo disponível',brl0(tot),'orçamento do próximo garimpo',{hl:1,icon:'caixa'})}${kpi('Separar desta semana',brl0(sum(ciclo,reposicao)),`${ciclo.length} vendas desde ${fDay(ld)}`)}${kpi('Total que entrou',brl0(ent),'reposição das vendas')}${kpi('Saídas',brl0(sai),`garimpos e ${brl0(sum(S.despesas,x=>x.valor||0))} em materiais`)}</div>
   <div class="callout" style="margin-bottom:22px">${ic('info')}<p>A cada venda vai para o caixa o <b>custo real da peça</b> (o que você pagou + a gasolina) e mais <b>${S.settings.reinvest}% do lucro</b>. O custo mantém o estoque do mesmo tamanho; a parte do lucro faz cada drop crescer um pouco. Os outros ${100-S.settings.reinvest}% do lucro são seus. <a class="lnk" href="#ajustes">Mudar a porcentagem</a></p></div>
   <div class="sec-h"><h2>Movimentações</h2><span class="muted">mais recentes primeiro</span></div>
   <div class="tw"><table class="t"><thead><tr><th>Data</th><th>Descrição</th><th class="r">Entrada</th><th class="r">Saída</th><th class="r">Saldo</th></tr></thead><tbody>
-  ${L.slice().reverse().map(r=>`<tr class="click" ${r.id?`data-a="openPeca" data-id="${r.id}"`:`data-a="goDropG" data-id="${r.gid}"`}><td>${fDow(r.data)}</td><td style="max-width:440px;overflow:hidden;text-overflow:ellipsis">${r.tipo==='garimpo'?`<b style="font-weight:500">${esc(r.desc)}</b> <span class="muted">· ${brl(r.pecas)} peças + ${brl(r.gas)} gasolina</span>`:esc(r.desc)}</td><td class="r pos">${r.v>0?'+ '+brl(r.v):''}</td><td class="r">${r.v<0?'− '+brl(-r.v):''}</td><td class="r"><b>${brl(r.saldo)}</b></td></tr>`).join('')}
+  ${L.slice().reverse().map(r=>`<tr class="click" ${r.id?`data-a="openPeca" data-id="${r.id}"`:r.did?`data-a="despEdit" data-id="${r.did}"`:`data-a="goDropG" data-id="${r.gid}"`}><td>${fDow(r.data)}</td><td style="max-width:440px;overflow:hidden;text-overflow:ellipsis">${r.tipo==='garimpo'?`<b style="font-weight:500">${esc(r.desc)}</b> <span class="muted">· ${brl(r.pecas)} peças + ${brl(r.gas)} gasolina</span>`:esc(r.desc)}</td><td class="r pos">${r.v>0?'+ '+brl(r.v):''}</td><td class="r">${r.v<0?'− '+brl(-r.v):''}</td><td class="r"><b>${brl(r.saldo)}</b></td></tr>`).join('')}
   <tr><td class="muted">início</td><td class="muted">Capital inicial</td><td class="r pos">+ ${brl(S.settings.inicial)}</td><td></td><td class="r"><b>${brl(S.settings.inicial)}</b></td></tr></tbody></table></div>`;
 }
 
@@ -995,7 +1041,7 @@ function vRel(){
   return head('Relatórios','O que dá dinheiro, o que vende rápido e o que fica parado.')+`
   <div class="kpis">${kpi('Taxa de venda',pct(sold.length/Math.max(1,done.length)),`${sold.length} de ${done.length} peças lançadas`)}${kpi('Dias até vender',(sum(sold,p=>diff(entry(p),p.venda.data))/Math.max(1,sold.length)).toFixed(1),'média, contando do drop')}${kpi('Margem média',pct(sum(sold,lucro)/Math.max(1,sum(sold,p=>p.venda.valor))),'lucro ÷ valor de venda')}${kpi('Gasolina por peça',brl(sum(S.garimpos,gGas)/Math.max(1,S.pecas.length)),`${brl0(sum(S.garimpos,gGas))} em ${S.garimpos.length} garimpos`)}</div>
   <div class="sec-h"><h2>Desempenho por drop</h2></div>
-  <div class="tw" style="margin-bottom:28px"><table class="t"><thead><tr><th>Drop</th><th class="r">Peças</th><th class="r">Vendidas</th><th style="width:16%"></th><th class="r">Dias p/ vender</th><th class="r">Investido</th><th class="r">Receita</th><th class="r">Lucro</th></tr></thead><tbody>${past.map(d=>{const s=dStats(d);return `<tr class="click" data-a="goDrop" data-v="${d.n}"><td><b style="font-weight:500">Drop ${d.n}</b> <span class="muted">· ${fDay(d.data)}</span></td><td class="r">${s.ps.length}</td><td class="r">${pct(s.st)}</td><td><div class="bar"><b style="width:${s.st*100}%"></b></div></td><td class="r">${s.dias==null?'—':s.dias.toFixed(1)}</td><td class="r">${brl0(s.inv)}</td><td class="r">${brl0(s.rec)}</td><td class="r ${s.luc>=0?'pos':'neg'}">${brl0(s.luc)}</td></tr>`}).join('')}</tbody></table></div>
+  <div class="tw" style="margin-bottom:28px"><table class="t"><thead><tr><th>Drop</th><th class="r">Peças</th><th class="r">Vendidas</th><th style="width:16%"></th><th class="r">Dias p/ vender</th><th class="r">Investido</th><th class="r">Receita</th><th class="r">Lucro</th></tr></thead><tbody>${past.map(d=>{const s=dStats(d);return `<tr class="click" data-a="goDrop" data-v="${d.n}"><td><b style="font-weight:500">Drop ${d.n}</b> <span class="muted">· ${fDay(d.data)}</span></td><td class="r">${s.ps.length}</td><td class="r">${pct(s.st)}</td><td><div class="bar"><b style="width:${s.st*100}%"></b></div></td><td class="r">${s.dias==null?'—':s.dias.toFixed(1)}</td><td class="r">${brl0(s.inv)}</td><td class="r">${brl0(s.rec)}</td><td class="r ${s.liq>=0?'pos':'neg'}">${brl0(s.liq)}</td></tr>`}).join('')}</tbody></table></div>
   <div class="sec-h"><h2>Ranking de brechós</h2><span class="muted">ROI = lucro ÷ custo real (peça + gasolina), nas peças vendidas</span></div>
   <div class="tw" style="margin-bottom:28px"><table class="t"><thead><tr><th>Brechó</th><th class="r">Compradas</th><th class="r">Vendidas</th><th class="r">Lucro</th><th class="r">ROI</th><th style="width:20%"></th><th class="r">Dias p/ vender</th></tr></thead><tbody>${bs.map(x=>`<tr class="click" data-a="openBrecho" data-id="${x.b.id}"><td><b style="font-weight:500">${esc(x.b.nome)}</b></td><td class="r">${x.ps.length}</td><td class="r">${x.v.length}</td><td class="r">${brl0(x.luc)}</td><td class="r"><b>${pct(x.roi)}</b></td><td><div class="bar"><b style="width:${mr?(x.roi||0)/mr*100:0}%"></b></div></td><td class="r">${x.dias==null?'—':x.dias.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>
   <div class="g2" style="align-items:start"><div style="min-width:0"><div class="sec-h"><h2>Categorias</h2><span class="muted">mais rápidas primeiro</span></div>${gtbl(cats,'Categoria')}</div><div style="min-width:0"><div class="sec-h"><h2>Épocas</h2><span class="muted">mais rápidas primeiro</span></div>${gtbl(eps,'Época')}</div></div>
@@ -1061,7 +1107,7 @@ function pecaDrawer(p){
     <div class="sect"><h3>Valores</h3>
       <div class="g3">
         <div class="fld"><label for="f-pago">Valor pago</label><div class="affix"><span>R$</span><input class="input num" id="f-pago" data-f="pago" data-id="${p.id}" inputmode="decimal" value="${p.pago??''}"></div></div>
-        <div class="fld"><span class="lbl">+ Gasolina rateada</span><div class="calc">${brl(gasShare(p))}</div></div>
+        <div class="fld"><span class="lbl">+ Gasolina${extraPeca(p)?' e gastos':' rateada'}</span><div class="calc">${brl(gasShare(p)+extraPeca(p))}</div></div>
         <div class="fld"><span class="lbl">= Custo real</span><div class="calc big">${brl(c)}</div></div>
       </div>
       <div class="g3">
@@ -1069,6 +1115,9 @@ function pecaDrawer(p){
         <div class="fld"><span class="lbl">${p.venda?'Lucro':'Lucro previsto'}</span><div class="calc big ${l==null?'':l>=0?'pos':'neg'}">${brl(l)}</div></div>
         <div class="fld"><span class="lbl">Margem</span><div class="calc">${l!=null?pct(l/(p.venda?p.venda.valor:p.preco)):'—'}</div></div>
       </div>
+    </div>
+    <div class="sect"><div class="row" style="justify-content:space-between"><h3 style="margin:0;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">Gastos desta peça</h3><button class="btn sm" data-a="despNew" data-peca="${p.id}">${ic('plus',2)}Gasto</button></div>
+      ${gastosPeca(p).length?`<div class="tw"><table class="t" style="min-width:0"><tbody>${gastosPeca(p).map(d=>`<tr class="click" data-a="despEdit" data-id="${d.id}"><td>${esc(d.desc||d.cat)}<div class="mono">${esc(d.cat)} · ${fDay(d.data)}</div></td><td class="r">${brl(d.valor)}</td></tr>`).join('')}</tbody></table></div>`:`<p class="muted" style="margin:0;font-size:13px">Costureira, lavanderia ou outro gasto só desta peça. Entra no custo real e no preço sugerido.</p>`}
     </div>
     <div class="sect"><h3>Detalhes</h3>
       <div class="g2">${sel('cat',Object.keys(CATS),'Escolher','Categoria')}<div class="fld"><label for="f-marca">Marca</label><input class="input" id="f-marca" data-f="marca" data-id="${p.id}" list="marcas" value="${esc(p.marca||'')}" placeholder="Ex.: Farm, Levi's, sem marca" autocomplete="off">${marcaList()}</div></div>
@@ -1171,7 +1220,7 @@ function phoneHTML(){
     return `<div class="m"><div class="m-body" style="padding-top:${topPad}">
       <div class="m-hero row" style="justify-content:space-between;align-items:flex-start"><div><span class="wordmark">Flopes</span><p>Cadastro de garimpo</p></div>${themeBtn()}</div>
       <div class="budget"><span class="k">Você pode gastar hoje</span><span class="v">${brl0(bd.base)}</span><span class="s">saldo do caixa de reposição, já com a gasolina</span></div>
-      ${g?`<button class="btn pri lg full" data-a="mGo" data-v="cap">Continuar garimpo · ${g.items.length} peças</button><button class="btn full" data-a="mCancel">Descartar garimpo em andamento</button>`:`<button class="btn pri lg full" data-a="mStart">${ic('plus',2.2)}Começar garimpo</button>`}
+      ${g?`<button class="btn pri lg full" data-a="mGo" data-v="cap">Continuar garimpo · ${g.items.length} peças</button><button class="btn full" data-a="mCancel">Descartar garimpo em andamento</button>`:`<button class="btn pri lg full" data-a="mStart">${ic('plus',2.2)}Começar garimpo</button>`}<button class="btn full" data-a="mGasto">${ic('despesas')}Registrar gasto com material</button>
       <div class="m-h2"><span>Próximo drop</span></div>
       <div class="m-list"><div class="m-li"><span class="grow"><b>${nd.name} · ${fDow(nd.date)}</b><small>as peças de hoje entram nele</small></span></div></div>
       <div class="m-h2"><span>Últimos garimpos</span></div>
@@ -1179,6 +1228,13 @@ function phoneHTML(){
       <p class="muted" style="font-size:12px;text-align:center;margin:4px 0 0">Tudo fica salvo e aparece no computador, mesmo se faltar sinal agora. Preços, edição e análises ficam no computador.${!ui.phonePreview?` <span class="lnk" data-a="forceDesk">Abrir a gestão aqui mesmo</span>`:''}</p>
     </div></div>`;
   }
+  if(m.screen==='gasto'){const f=m.gs;
+    return `<div class="m"><div class="m-top"><button class="x" data-a="mGo" data-v="home" aria-label="Voltar">${ic('back')}</button><div class="t">Gasto com material<small>sai do caixa de reposição</small></div><span style="width:38px"></span></div>
+    <div class="m-body"><div class="fld"><span class="lbl">Categoria</span><div class="hscroll">${DCATS.map(c=>`<button class="chip ${f.cat===c?'on':''}" data-a="mGcat" data-v="${c}">${c}</button>`).join('')}</div>${DCAT_HINT[f.cat]?`<span class="hint">${DCAT_HINT[f.cat]}</span>`:''}</div>
+    <div class="fld"><label for="mg-valor">Quanto custou</label><div class="bigval"><span>R$</span><input id="mg-valor" inputmode="decimal" placeholder="0" value="${esc(f.valor||'')}" autocomplete="off"></div></div>
+    <div class="fld"><label for="mg-desc">Descrição <span class="faint">(opcional)</span></label><input class="input" id="mg-desc" value="${esc(f.desc||'')}" placeholder="Ex.: 50 sacolas kraft" autocomplete="off"></div>
+    <p class="muted" style="margin:0;font-size:12px">Entra no ${esc(dropNameFor(addDays(TODAY,-1)).name)}. No computador dá para mudar o drop ou ligar a uma peça.</p></div>
+    <div class="m-foot"><button class="btn pri lg full" data-a="mGsave">Salvar gasto</button></div></div>`}
   if(m.screen==='brecho'){
     if(m.nb)return `<div class="m"><div class="m-top"><button class="x" data-a="mNbCancel" aria-label="Voltar">${ic('back')}</button><div class="t">Novo brechó</div><span style="width:38px"></span></div>
       <div class="m-body"><div class="fld"><label for="mnb-nome">Nome</label><input class="input" id="mnb-nome" data-mnb="nome" value="${esc(m.nb.nome)}" placeholder="Nome do brechó"></div>
@@ -1232,14 +1288,15 @@ function phoneHTML(){
 }
 
 /* ================= render ================= */
+function keepDsp(){const f=ui.dsp;if(!f)return;if($('ds-desc'))f.desc=$('ds-desc').value;if($('ds-valor'))f.valor=numIn($('ds-valor').value);if($('ds-data'))f.data=$('ds-data').value||TODAY;if($('ds-drop'))f.dropId=$('ds-drop').value||null;if($('ds-peca'))f.pecaId=$('ds-peca').value||null}
 function renderDesk(){
   const r=curRoute();
-  const v=r.startsWith('drop-')?vDrop(r.slice(5)):({painel:vPainel,drops:vDrops,pecas:vPecas,vendas:vVendas,caixa:vCaixa,brechos:vBrechos,relatorios:vRel,ajustes:vAjustes}[r]||vPainel)();
+  const v=r.startsWith('drop-')?vDrop(r.slice(5)):({painel:vPainel,drops:vDrops,pecas:vPecas,vendas:vVendas,caixa:vCaixa,despesas:vDespesas,brechos:vBrechos,relatorios:vRel,ajustes:vAjustes}[r]||vPainel)();
   const navOn=r.startsWith('drop-')?'drops':r;
   const prep=prepDrop();const incN=prep?dStats(prep).inc.length:0;
   const navA=([k,l])=>`<a href="#${k}" class="${navOn===k?'on':''}">${ic(k)}${l}${k==='drops'&&incN?`<span class="cnt" title="peças a completar no próximo drop">${incN}</span>`:''}</a>`;
   $('root').innerHTML=`<div class="desk"><aside class="side"><div class="brand"><span class="wordmark">Flopes</span><small>brechó</small></div>
-    <nav class="nav">${NAV.slice(0,2).map(navA).join('')}</nav><div class="navg">Estoque e vendas</div><nav class="nav">${NAV.slice(2,5).map(navA).join('')}</nav><div class="navg">Garimpo</div><nav class="nav">${NAV.slice(5).map(navA).join('')}</nav>
+    <nav class="nav">${NAV.slice(0,2).map(navA).join('')}</nav><div class="navg">Estoque e vendas</div><nav class="nav">${NAV.slice(2,6).map(navA).join('')}</nav><div class="navg">Garimpo</div><nav class="nav">${NAV.slice(6).map(navA).join('')}</nav>
     <div class="side-card"><span class="k">Caixa disponível</span><span class="v num">${brl0(caixa())}</span>${prep?`<span class="muted" style="font-size:12px">Próximo: Drop ${prep.n} · ${fDow(prep.data)}</span>`:''}<button class="btn sm full" data-a="phoneOpen">${ic('phone')}Cadastro no celular</button></div></aside>
     <div class="mainc"><div class="top"><div class="gsearch">${ic('search')}<input id="gq" placeholder="Buscar peça, marca, código ou brechó  ( / )" value="${esc(ui.gq)}" autocomplete="off" aria-label="Busca geral"><div id="gres"></div></div><span class="spacer"></span>${syncPill()}${themeBtn()}<button class="btn hide-s" data-a="saleNew">Registrar venda</button><button class="btn pri" data-a="newPeca" aria-label="Nova peça">${ic('plus',2)}<span class="hide-s">Nova peça</span></button></div>
     <nav class="mnav">${NAV.map(([k,l])=>`<a href="#${k}" class="${navOn===k?'on':''}">${l}</a>`).join('')}<a href="#painel" data-a="mBack">Cadastro</a></nav>
@@ -1259,7 +1316,7 @@ function renderLayer(keep){
     if(html)h+=`<div class="scrim" data-a="closeDrawer"></div><aside class="drawer" role="dialog" aria-modal="true">${html}</aside>`;else ui.drawer=null}
   if(ui.modal){const k=ui.modal.kind;
     if(k==='phone')h+=`<div class="scrim top dark" data-a="closeModal"></div><div class="phone-w"><div class="phone-note"><h3>Cadastro no celular</h3><p>Assim o Flopes funciona na rua, em três passos:</p><ol><li>Escolha o brechó onde está</li><li>Tire a foto e digite o valor</li><li>Ao encerrar, informe os km</li></ol><p>As peças aparecem aqui no próximo drop, na coluna A completar. Abra este link no celular para usar em tela cheia.</p><button class="btn" data-a="closeModal">Fechar</button></div><div class="phone" id="phoneBox">${phoneHTML()}</div></div>`;
-    else{const html=k==='bform'?brechoForm():k==='sale'?saleModal():k==='newPeca'?newPecaModal():k==='drop'?dropModal():'';h+=`<div class="scrim top" data-a="closeModal"></div><div class="modalw"><div class="modal ${k==='bform'?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`}}
+    else{const html=k==='bform'?brechoForm():k==='sale'?saleModal():k==='newPeca'?newPecaModal():k==='drop'?dropModal():k==='desp'?despModal():'';h+=`<div class="scrim top" data-a="closeModal"></div><div class="modalw"><div class="modal ${k==='bform'?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`}}
   L.innerHTML=h;
   if(sc&&L.querySelector('.dr-b'))L.querySelector('.dr-b').scrollTop=sc;
   if(msc&&L.querySelector('.modal'))L.querySelector('.modal').scrollTop=msc;
@@ -1315,7 +1372,7 @@ const A={
   useSug:el=>{const p=P(el.dataset.id);p.preco=sugestao(p);refresh()},
   applyMd:el=>{const p=P(el.dataset.id);const np=markdown(p);p.preco=np;const ld=liveDrop();if(ld)p.dropId=ld.id;refresh();toast(`${p.code} agora por ${brl0(np)}, de volta no drop atual`)},
   delAsk:()=>{ui.delAsk=true;renderLayer(true)},delNo:()=>{ui.delAsk=false;renderLayer(true)},
-  delOk:el=>{const id=el.dataset.id;const i=ui.dl.indexOf(id);S.pecas=S.pecas.filter(p=>p.id!==id);ui.dl=ui.dl.filter(x=>x!==id);ui.drawer=i>=0&&ui.dl[i]?{kind:'peca',id:ui.dl[i]}:null;ui.delAsk=false;refresh();toast('Peça excluída')},
+  delOk:el=>{const id=el.dataset.id;const i=ui.dl.indexOf(id);S.pecas=S.pecas.filter(p=>p.id!==id);S.despesas.forEach(x=>{if(x.pecaId===id){x.pecaId=null}});ui.dl=ui.dl.filter(x=>x!==id);ui.drawer=i>=0&&ui.dl[i]?{kind:'peca',id:ui.dl[i]}:null;ui.delAsk=false;refresh();toast('Peça excluída')},
   launch:el=>{const d=D(el.dataset.id);const ps=pecasDrop(d).filter(p=>col(p)==='estoque');ps.forEach(p=>p.status='anunciada');refresh();toast(`${ps.length} peças do Drop ${d.n} marcadas como anunciadas`)},
   bulkSug:()=>{let n=0;ui.sel.forEach(id=>{const p=P(id);if(p&&!p.venda){p.preco=sugestao(p);n++}});refresh();toast(`Preço sugerido aplicado em ${n} peças`)},
   bulkClear:()=>{ui.sel.clear();renderDesk()},
@@ -1331,6 +1388,19 @@ const A={
   saleNew:()=>{ui.modal={kind:'sale',id:null,q:''};renderLayer();setTimeout(()=>$('saleQ')?.focus(),30)},
   salePick:el=>{ui.modal.id=el.dataset.id;renderLayer();setTimeout(()=>$('sv')?.select(),30)},
   newPeca:()=>{ui.np={nome:'',marca:'',cat:'',pago:null,brechoId:S.brechos[0]?.id||'',dropId:prepDrop()?.id||''};ui.modal={kind:'newPeca'};renderLayer();setTimeout(()=>$('np-nome')?.focus(),30)},
+  despNew:el=>{const pid=el?.dataset?.peca||null,did=el?.dataset?.drop||null;const def=nearDrop(addDays(TODAY,-1))||liveDrop()||prepDrop();
+    ui.dsp={id:null,cat:pid?'Costura e ajustes':'Embalagem',desc:'',valor:null,data:TODAY,tipo:pid?'peca':'drop',dropId:did||def?.id||null,pecaId:pid};if(!pid&&!did&&!def)ui.dsp.tipo='geral';ui.dspDel=false;ui.modal={kind:'desp'};renderLayer();setTimeout(()=>$('ds-desc')?.focus(),30)},
+  despEdit:el=>{const d=S.despesas.find(x=>x.id===el.dataset.id);if(!d)return;ui.dsp={...d,tipo:d.pecaId?'peca':d.dropId?'drop':'geral'};ui.dspDel=false;ui.modal={kind:'desp'};renderLayer()},
+  dspCat:el=>{keepDsp();ui.dsp.cat=el.dataset.v;renderLayer(true)},
+  dspTipo:el=>{keepDsp();ui.dsp.tipo=el.dataset.v;if(ui.dsp.tipo==='drop'&&!ui.dsp.dropId)ui.dsp.dropId=(nearDrop(addDays(ui.dsp.data,-1))||liveDrop()||prepDrop())?.id||null;renderLayer(true)},
+  despSave:()=>{keepDsp();const f=ui.dsp;if(f.valor==null||f.valor<=0){toast('Digite o valor do gasto');$('ds-valor').focus();return}
+    if(f.tipo==='peca'&&!f.pecaId){toast('Escolha a peça');return}
+    const rec={id:f.id||uid('x'),cat:f.cat,desc:(f.desc||'').trim(),valor:f.valor,data:f.data||TODAY,dropId:f.tipo==='drop'?(f.dropId||null):null,pecaId:f.tipo==='peca'?f.pecaId:null};
+    const i=S.despesas.findIndex(x=>x.id===rec.id);if(i>=0)S.despesas[i]=rec;else S.despesas.push(rec);
+    ui.modal=null;refresh();toast(`Gasto de ${brl(rec.valor)} salvo`)},
+  despDelAsk:()=>{ui.dspDel=true;renderLayer(true)},despDelNo:()=>{ui.dspDel=false;renderLayer(true)},
+  despDelOk:()=>{S.despesas=S.despesas.filter(x=>x.id!==ui.dsp.id);ui.modal=null;refresh();toast('Gasto excluído')},
+  dp:el=>{ui.dp=el.dataset.v;renderDesk()},dc:el=>{ui.dc=el.dataset.v;renderDesk()},
   dropNew:()=>{const last=dropsSorted()[0];const base=last&&last.data>=TODAY?last.data:addDays(TODAY,-1);ui.df={id:null,data:nextDropDate(base),nome:''};ui.dfDel=false;ui.modal={kind:'drop'};renderLayer()},
   dropEdit:el=>{const d=D(el.dataset.id);ui.df={id:d.id,data:d.data,nome:d.nome||''};ui.dfDel=false;ui.modal={kind:'drop'};renderLayer()},
   dropSave:()=>{const f=ui.df,data=$('df-data').value,nome=$('df-nome').value.trim();
@@ -1352,6 +1422,11 @@ const A={
   confOk:()=>{S.settings.confirmed=true;renderDesk();toast('Valores confirmados')},
   theme:()=>{const n=curTheme()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('flopes-theme',n)}catch(e){}render()},
   /* celular */
+  mGasto:()=>{ui.m.gs={cat:'Embalagem',valor:'',desc:''};ui.m.screen='gasto';renderPhone();setTimeout(()=>$('mg-valor')?.focus(),30)},
+  mGcat:el=>{ui.m.gs.valor=$('mg-valor').value;ui.m.gs.desc=$('mg-desc').value;ui.m.gs.cat=el.dataset.v;renderPhone(true)},
+  mGsave:()=>{const v=numIn($('mg-valor').value);if(!v){toast('Digite quanto custou');$('mg-valor').focus();return}
+    const d=nearDrop(addDays(TODAY,-1))||targetDrop(TODAY);
+    S.despesas.push({id:uid('x'),cat:ui.m.gs.cat,desc:$('mg-desc').value.trim(),valor:v,data:TODAY,dropId:d.id,pecaId:null});ui.m.screen='home';ui.m.gs=null;renderPhone();if(!isPhone())renderDesk();flushSoon();toast(`Gasto de ${brl(v)} salvo`)},
   mStart:()=>{ui.m.g=newM();ui.m.screen='brecho';ui.m.bq='';renderPhone()},
   mCancel:()=>{ui.m.g=null;renderPhone()},
   mGo:el=>{keepMInputs();const v=el.dataset.v;ui.m.screen=(v==='cap'&&!ui.m.g?.cur)?'brecho':v;ui.m.nb=null;renderPhone()},
@@ -1460,7 +1535,7 @@ const SB_URL='https://hjsqpqystzfiagcoopsz.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqc3FwcXlzdHpmaWFnY29vcHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMDMwNTUsImV4cCI6MjEwODc3OTA1NX0.0XAroRg5Mn-TOnVsCn6_6BVvfpxVWhJIGoW1xx4xhSo';
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'flopes-auth'}}):null;
 const SYNC={mode:'loading',why:'',saved:{},pend:{},state:'ok',timer:null,retry:null,busy:false,again:false,deferred:false,hasSettings:false,rt:0,user:null,chan:null,upBusy:false,errShown:false};
-const COLS=['brechos','garimpos','drops','pecas'];
+const COLS=['brechos','garimpos','drops','pecas','despesas'];
 const LS_CACHE='flopes-cache-v1',LS_PEND='flopes-pend-v1';
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
@@ -1471,7 +1546,7 @@ function syncPill(){const n=Object.keys(SYNC.pend).length;
   const t=SYNC.state==='saving'?'Salvando…':SYNC.state==='offline'?`Sem internet${n?` · ${n} no aparelho`:''}`:SYNC.state==='err'?'Tentando salvar…':'Salvo';
   return `<span class="sample" id="syncPill"><i class="${SYNC.state==='offline'?'saving':SYNC.state}"></i>${t}</span>`}
 function setSave(st){SYNC.state=st;const el=$('syncPill');if(el)el.outerHTML=syncPill()}
-function saveCache(){lsSet(LS_CACHE,{settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas,saved:SYNC.saved,hasSettings:SYNC.hasSettings})}
+function saveCache(){lsSet(LS_CACHE,{settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas,despesas:S.despesas,saved:SYNC.saved,hasSettings:SYNC.hasSettings})}
 function flushSoon(){if(SYNC.mode!=='live')return;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(flush,350)}
 function diffToPend(){
   const seen=new Set();
@@ -1547,7 +1622,7 @@ document.addEventListener('submit',async e=>{if(e.target.id!=='loginForm')return
     if(error){err.textContent=navigator.onLine?'E-mail ou senha incorretos.':'Sem internet. Conecte-se para entrar pela primeira vez.';btn.disabled=false;btn.textContent='Entrar';return}
     SYNC.mode='loading';render();boot();
   }catch(x){err.textContent='Não consegui conectar. Tente de novo.';btn.disabled=false;btn.textContent='Entrar'}});
-A.backup=()=>{const data={app:'Flopes',exportadoEm:new Date().toISOString(),settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas};
+A.backup=()=>{const data={app:'Flopes',exportadoEm:new Date().toISOString(),settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas,despesas:S.despesas};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`flopes-backup-${TODAY}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Backup baixado')};
 A.logout=async()=>{if(Object.keys(SYNC.pend).length){toast('Ainda há alterações não enviadas. Conecte-se à internet antes de sair.');return}
   try{await sb.auth.signOut()}catch(e){}try{localStorage.removeItem(LS_CACHE);localStorage.removeItem(LS_PEND)}catch(e){}location.reload()};
