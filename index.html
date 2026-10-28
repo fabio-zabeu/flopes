@@ -1199,7 +1199,8 @@ function phoneHTML(){
         <div class="m-list" style="padding:2px 14px">${per.map(x=>`<div class="mrow"><span>${esc(x.b.nome)} <span class="muted">· ${x.its.length}</span></span><b>${brl(sum(x.its,i=>i.pago))}</b></div>`).join('')}
           <div class="mrow"><span>Gasolina <span class="muted">· ${km} km</span></span><b>${brl(gas)}</b></div>
           <div class="mrow" style="font-size:16px"><b>Total</b><b>${brl(tot+gas)}</b></div></div>
-        <div class="callout">${ic('drops')}<p>As ${g.items.length} peças vão para o <b>${nd.name}</b> (${fDow(nd.date)}), na coluna <b>A completar</b>. Preço, tamanho e detalhes você define no computador.</p></div>
+        <div class="fld"><label for="mdrop">Para qual drop vão as peças?</label><select class="input" id="mdrop"><option value="">${esc(nd.name)} · ${fDow(nd.date)} (sugerido)</option>${S.drops.filter(x=>x.data>=g.data).sort((a,b)=>a.data.localeCompare(b.data)).filter(x=>x.id!==nearDrop(g.data)?.id).map(x=>`<option value="${x.id}" ${g.dropId===x.id?'selected':''}>${esc(dlabel(x))}</option>`).join('')}</select></div>
+        <div class="callout">${ic('drops')}<p>${g.items.length===1?'A peça entra':`As ${g.items.length} peças entram`} na coluna <b>A completar</b> do drop escolhido. Preço, tamanho e detalhes você define no computador, onde também dá para trocar o drop de cada peça.</p></div>
       </div>
       <div class="m-foot"><button class="btn pri lg full" data-a="mSave">Salvar garimpo</button></div></div>`;
   }
@@ -1348,7 +1349,7 @@ const A={
     if(v==null){toast('Digite quanto você pagou');$('mpago').focus();return}
     const marca=($('mmarca')?.value||'').trim()||null;g.items.push({nome:nome?nome[0].toUpperCase()+nome.slice(1):m.cat,marca,pago:v,foto:m.tmp,fotoP:m.tmpP||null,cat:m.cat,b:g.cur});m.tmp=null;m.tmpP=null;m.cat=null;m.nome='';m.pago='';m.marca='';renderPhone();toast(`Peça adicionada · ${brl(v)}`)},
   mDel:el=>{keepMInputs();ui.m.g.items.splice(+el.dataset.v,1);renderPhone(true)},
-  mSave:()=>{const m=ui.m,g=m.g;const km=g.km??route(g.ids).km;const drop=targetDrop(g.data);
+  mSave:()=>{const m=ui.m,g=m.g;const km=g.km??route(g.ids).km;const drop=(g.dropId&&D(g.dropId))||targetDrop(g.data);
     const ids=g.ids.filter(i=>g.items.some(x=>x.b===i));const gar={id:uid('g'),data:g.data,brechoIds:ids,km,dropId:drop.id};S.garimpos.push(gar);
     g.items.forEach(it=>{const pc={id:uid('p'),code:nextCode(),nome:it.nome,marca:it.marca||null,foto:it.foto||null,fotoUrl:null,cat:it.cat,tam:null,epoca:null,estado:null,medidas:{},brechoId:it.b,garimpoId:gar.id,dropId:drop.id,pago:it.pago,preco:null,status:'estoque',venda:null};S.pecas.push(pc);
       if(it.fotoP)it.fotoP.then(u=>{const q=P(pc.id);if(u&&q){q.fotoUrl=u;q.foto=null;flushSoon()}})});
@@ -1400,6 +1401,7 @@ document.addEventListener('change',e=>{
   if(t.dataset.f){const p=P(t.dataset.id),k=t.dataset.f;p[k]=(k==='pago'||k==='preco')?numIn(t.value):(t.value.trim()||null);if(k==='nome'&&!p.nome)p.nome='Sem nome';refresh();if(!isInc(p)&&['preco','cat','tam'].includes(k)&&ui.dl.length&&ui.dl.indexOf(p.id)>=0&&p.status!=='vendida')toast(`${p.code} pronta`)}
   if(t.dataset.m){const p=P(t.dataset.id);p.medidas=p.medidas||{};p.medidas[t.dataset.m]=numIn(t.value)}
   if(t.dataset.s&&t.dataset.s!=='reinvest'){S.settings.confirmed=true;const k=t.dataset.s;S.settings[k]=(k==='home'||k==='dropDay')?t.value:(numIn(t.value)??S.settings[k]);renderDesk()}
+  if(t.id==='mdrop'&&ui.m.g){ui.m.g.dropId=t.value||null}
   if(t.dataset.mkm){ui.m.g.km=numIn(t.value);renderPhone(true)}
   if(t.dataset.photo){const f=t.files&&t.files[0],id=t.dataset.photo;if(f){toast('Enviando foto…');shrink(f).then(r=>uploadPhoto(r)).then(r=>{const p=P(id);if(!p)return;if(r.fotoUrl){p.fotoUrl=r.fotoUrl;p.foto=null}else{p.fotoUrl=null;p.foto=r.url}refresh();flushSoon();toast(r.fotoUrl?'Foto salva':'Foto guardada no aparelho; envio quando tiver internet')})}}
   if(t.dataset.mphoto){const f=t.files&&t.files[0];if(f){keepMInputs();shrink(f).then(r=>{ui.m.tmp=r.url;ui.m.tmpP=uploadPhoto(r).then(x=>x.fotoUrl);renderPhone(true);$('mpago')?.focus()})}}
