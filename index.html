@@ -341,7 +341,7 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:po
 .m-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px}
 .m-h b{font-size:16px;font-weight:600}
 .m-b{padding:4px 20px 18px;display:flex;flex-direction:column;gap:14px}
-.m-f{border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:8px;justify-content:flex-end}
+.m-f{border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:var(--bg);z-index:2}
 .scrim.top{z-index:60}
 .scrim.dark{background:rgba(8,8,8,.86)}
 @keyframes fade{from{opacity:0}}
@@ -480,7 +480,16 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:po
 .mnav{display:none}
 @media (max-width:1180px){.dc{grid-template-columns:130px minmax(0,1fr) 180px 110px 18px}.dc .r2{display:none}}
 @media (max-width:1100px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dash,.split2{grid-template-columns:1fr}.dc{grid-template-columns:130px minmax(0,1fr) 110px 18px}.dc .sv{display:none}}
+input[type=date].input{-webkit-appearance:none;appearance:none;display:block;line-height:34px;text-align:left;min-width:0}
+input[type=date].input::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type=date].input::-webkit-calendar-picker-indicator{opacity:.6}
+.cl-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 @media (max-width:760px){
+  .modal .g2,.modal .g3,.drawer .g2,.drawer .g3,.cl-grid{grid-template-columns:minmax(0,1fr)}
+  .modal .input,.modal select.input,.drawer .input,.drawer select.input{height:44px;font-size:16px}
+  .modal .btn,.drawer .dr-f .btn{height:40px}
+  .modal .seg{display:flex}.modal .seg button{flex:1;height:36px}
+  .modal .m-f .btn{flex:1}
   .side{display:none}
   .mnav{display:flex;gap:4px;overflow-x:auto;padding:8px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line);scrollbar-width:none}
   .mnav a{height:32px;padding:0 12px;border-radius:16px;display:inline-flex;align-items:center;color:var(--muted);font-weight:500;white-space:nowrap}
@@ -930,9 +939,9 @@ function vVendas(){
   return head('Vendas','Cada venda separa automaticamente o valor de reposição para o caixa.',`<button class="btn pri" data-a="saleNew">${ic('plus',2)}Registrar venda</button>`)+`
   <div class="toolbar"><div class="seg">${Object.entries(P2).map(([k,[l]])=>`<button class="${ui.vp===k?'on':''}" data-a="vp" data-v="${k}">${l}</button>`).join('')}</div></div>
   <div class="kpis">${kpi('Vendas',brl0(rec),`${v.length} peças · ticket médio ${brl0(rec/Math.max(1,v.length))}`)}${kpi('Lucro',brl0(luc),`margem ${pct(luc/Math.max(1,rec))}`,{cls:'pos'})}${kpi('Separar para reposição',brl0(rep),`custo + ${S.settings.reinvest}% do lucro`,{hl:1})}${kpi('Livre para você',brl0(rec-rep),`${100-S.settings.reinvest}% do lucro`)}</div>
-  ${v.length?`<div class="tw"><table class="t"><thead><tr><th>Data</th><th>Peça</th><th>Drop</th><th>Canal</th><th class="r">Valor</th><th class="r">Custo real</th><th class="r">Lucro</th><th class="r">Reposição</th><th class="r">Dias p/ vender</th></tr></thead><tbody>
-  ${v.map(p=>`<tr class="click" data-a="openPeca" data-id="${p.id}"><td>${fDow(p.venda.data)}</td><td>${pc(p)}</td><td class="muted">#${D(p.dropId)?.n}</td><td class="muted">${p.venda.canal}</td><td class="r"><b>${brl(p.venda.valor)}</b></td><td class="r muted">${brl(custo(p))}</td><td class="r ${lucro(p)>=0?'pos':'neg'}">${brl(lucro(p))}</td><td class="r">${brl(reposicao(p))}</td><td class="r muted">${dias(p)}</td></tr>`).join('')}</tbody>
-  <tfoot><tr><td colspan="4">${v.length} vendas</td><td class="r">${brl(rec)}</td><td class="r">${brl(sum(v,custo))}</td><td class="r">${brl(luc)}</td><td class="r">${brl(rep)}</td><td></td></tr></tfoot></table></div>`:`<div class="empty">Nenhuma venda nesse período.</div>`}`;
+  ${v.length?`<div class="tw"><table class="t"><thead><tr><th>Data</th><th>Peça</th><th>Cliente</th><th>Drop</th><th>Canal</th><th class="r">Valor</th><th class="r">Custo real</th><th class="r">Lucro</th><th class="r">Reposição</th><th class="r">Dias p/ vender</th></tr></thead><tbody>
+  ${v.map(p=>`<tr class="click" data-a="openPeca" data-id="${p.id}"><td>${fDow(p.venda.data)}</td><td>${pc(p)}</td><td>${p.venda.cliente?`<b style="font-weight:500">${esc(p.venda.cliente.nome||'')}</b><div class="mono">${esc([p.venda.cliente.insta,p.venda.cliente.local].filter(Boolean).join(' · '))}</div>`:'<span class="faint">—</span>'}</td><td class="muted">#${D(p.dropId)?.n}</td><td class="muted">${p.venda.canal}</td><td class="r"><b>${brl(p.venda.valor)}</b></td><td class="r muted">${brl(custo(p))}</td><td class="r ${lucro(p)>=0?'pos':'neg'}">${brl(lucro(p))}</td><td class="r">${brl(reposicao(p))}</td><td class="r muted">${dias(p)}</td></tr>`).join('')}</tbody>
+  <tfoot><tr><td colspan="5">${v.length} vendas</td><td class="r">${brl(rec)}</td><td class="r">${brl(sum(v,custo))}</td><td class="r">${brl(luc)}</td><td class="r">${brl(rep)}</td><td></td></tr></tfoot></table></div>`:`<div class="empty">Nenhuma venda nesse período.</div>`}`;
 }
 
 function vCaixa(){
@@ -1032,6 +1041,8 @@ function pecaDrawer(p){
   let sale='';
   if(p.venda)sale=`<div class="sect"><h3>Venda</h3><div class="g3"><div class="fld"><span class="lbl">Valor</span><div class="calc big">${brl(p.venda.valor)}</div></div><div class="fld"><span class="lbl">Data</span><div class="calc">${fDow(p.venda.data)}</div></div><div class="fld"><span class="lbl">Canal</span><div class="calc">${esc(p.venda.canal)}</div></div></div>
     <div class="money2"><div><div class="k">Separar para reposição</div><div class="v">${brl(reposicao(p))}</div><div class="k">custo + ${S.settings.reinvest}% do lucro</div></div><div><div class="k">Livre para você</div><div class="v">${brl(l-(reposicao(p)-c))}</div><div class="k">vendida em ${dias(p)} dias</div></div></div>
+    <div class="fld"><span class="lbl" style="font-weight:600;color:var(--fg)">Cliente</span></div><div data-vc="${p.id}">${clienteFields(p.venda.cliente,'vc-')}</div>
+    ${instaUrl(p.venda.cliente?.insta)?`<div><a class="btn sm" href="${instaUrl(p.venda.cliente.insta)}" target="_blank" rel="noopener">${ic('ext')}Abrir Instagram de ${esc(p.venda.cliente.nome||p.venda.cliente.insta)}</a></div>`:''}
     <div><button class="btn sm ghost" data-a="undoSale" data-id="${p.id}">Desfazer venda</button></div></div>`;
   else if(ui.sellOpen)sale=`<div class="sect" id="sellSect"><h3>Registrar venda</h3>${saleForm(p)}<div class="row"><button class="btn pri" data-a="sellOk" data-id="${p.id}">Confirmar venda</button><button class="btn ghost" data-a="sellCancel">Cancelar</button></div></div>`;
   return `<div class="dr-h"><span class="mono" style="font-size:13px">${p.code}</span>${st(col(p))}<span class="spacer"></span>
@@ -1073,7 +1084,14 @@ function pecaDrawer(p){
   <div class="dr-f">${ui.delAsk?`<div class="row"><span>Excluir ${p.code}?</span><button class="btn sm danger" data-a="delOk" data-id="${p.id}">Excluir</button><button class="btn sm ghost" data-a="delNo">Cancelar</button></div>`:`<button class="btn sm ghost danger" data-a="delAsk">${ic('trash')}Excluir</button>`}
     <div class="row"><span class="muted" style="font-size:12px">Alterações salvas automaticamente</span>${!p.venda&&!ui.sellOpen?`<button class="btn sm" data-a="sellOpen">Registrar venda</button>`:''}${next?`<button class="btn sm pri" data-a="nav" data-id="${next}">Próxima ${ic('chev')}</button>`:''}</div></div>`;
 }
-function saleForm(p){return `<div class="g3"><div class="fld"><label for="sv">Valor de venda</label><div class="affix"><span>R$</span><input class="input num" id="sv" inputmode="decimal" value="${p.preco||sugestao(p)}"></div></div><div class="fld"><label for="sd">Data</label><input class="input" id="sd" type="date" value="${TODAY}"></div><div class="fld"><span class="lbl">Canal</span><div class="seg" id="sc">${CANAIS.map((x,i)=>`<button class="${i===0?'on':''}" data-a="pickCanal" data-v="${x}">${x}</button>`).join('')}</div></div></div>`}
+function clientes(){const m={};S.pecas.forEach(p=>{const c=p.venda&&p.venda.cliente;if(c&&c.nome)m[c.nome.toLowerCase()]=c});return m}
+function clienteFields(c,pre){c=c||{};const list=Object.values(clientes());
+  return `<div class="cl-grid"><div class="fld"><label for="${pre}nome">Nome</label><input class="input" id="${pre}nome" data-cl="nome" list="cl-list" value="${esc(c.nome||'')}" placeholder="Quem comprou" autocomplete="off"><datalist id="cl-list">${list.map(x=>`<option value="${esc(x.nome)}"></option>`).join('')}</datalist></div>
+  <div class="fld"><label for="${pre}insta">Instagram</label><input class="input" id="${pre}insta" data-cl="insta" value="${esc(c.insta||'')}" placeholder="@" autocomplete="off" autocapitalize="none"></div>
+  <div class="fld"><label for="${pre}cep">CEP</label><input class="input num" id="${pre}cep" data-cl="cep" value="${esc(c.cep||'')}" placeholder="00000-000" inputmode="numeric" maxlength="9" autocomplete="off"></div>
+  <div class="fld"><label for="${pre}local">Onde mora</label><input class="input" id="${pre}local" data-cl="local" value="${esc(c.local||'')}" placeholder="Bairro, cidade" autocomplete="off"></div></div>`}
+function saleForm(p){return `<div class="stack" style="gap:14px"><div class="g3"><div class="fld"><label for="sv">Valor de venda</label><div class="affix"><span>R$</span><input class="input num" id="sv" inputmode="decimal" value="${p.preco||sugestao(p)}"></div></div><div class="fld"><label for="sd">Data</label><input class="input" id="sd" type="date" value="${TODAY}"></div><div class="fld"><span class="lbl">Canal</span><div class="seg" id="sc">${CANAIS.map((x,i)=>`<button class="${i===0?'on':''}" data-a="pickCanal" data-v="${x}">${x}</button>`).join('')}</div></div></div>
+  <div class="fld"><span class="lbl" style="font-weight:600;color:var(--fg)">Cliente <span class="faint" style="font-weight:400">(opcional)</span></span></div>${clienteFields(null,'sc-')}</div>`}
 
 function brechoDrawer(b){
   const s=bStats(b);
@@ -1118,11 +1136,11 @@ function dropModal(){
   const f=ui.df,d=f.id?D(f.id):null,ps=d?pecasDrop(d):[];
   const others=dropsSorted().filter(x=>x.id!==f.id);
   return `<div class="m-h"><b>${d?`Editar Drop ${d.n}`:'Novo drop'}</b><button class="x" data-a="closeModal" aria-label="Fechar">${ic('x')}</button></div><div class="m-b">
-  <div class="g2"><div class="fld"><label for="df-data">Data do drop</label><input class="input" id="df-data" type="date" value="${f.data}"></div>
-  <div class="fld"><label for="df-nome">Nome <span class="faint">(opcional)</span></label><input class="input" id="df-nome" value="${esc(f.nome||'')}" placeholder="Ex.: Especial de Natal" autocomplete="off"></div></div>
+  <div class="fld"><label for="df-data">Data do drop</label><input class="input" id="df-data" type="date" value="${f.data}"></div>
+  <div class="fld"><label for="df-nome">Nome <span class="faint">(opcional)</span></label><input class="input" id="df-nome" value="${esc(f.nome||'')}" placeholder="Ex.: Especial de Natal" autocomplete="off"></div>
   <p class="muted" style="margin:0;font-size:13px">Os drops são numerados pela data. ${d?'Se a nova data passar de outro drop, os números se reorganizam.':'Garimpos entram no drop que acontece até 7 dias depois deles.'}</p>
   ${d?`<div style="border-top:1px solid var(--line);padding-top:14px" class="stack">
-    ${ps.length?`<div class="fld"><label for="df-move">Para excluir, mova as ${ps.length} peças para outro drop</label><div class="row nowrap"><select class="input" id="df-move"><option value="">Escolher drop</option>${others.map(x=>`<option value="${x.id}">${dlabel(x)}</option>`).join('')}</select><button class="btn" data-a="dropMove" data-id="${d.id}">Mover</button></div></div>`
+    ${ps.length?`<div class="fld"><label for="df-move">Para excluir, mova as ${ps.length} peças para outro drop</label><select class="input" id="df-move"><option value="">Escolher drop</option>${others.map(x=>`<option value="${x.id}">${dlabel(x)}</option>`).join('')}</select><div><button class="btn" data-a="dropMove" data-id="${d.id}">Mover peças</button></div></div>`
       :ui.dfDel?`<div class="row"><span>Excluir o Drop ${d.n}?</span><button class="btn sm danger" data-a="dropDelOk" data-id="${d.id}">Excluir</button><button class="btn sm ghost" data-a="dropDelNo">Cancelar</button></div>`
       :`<div><button class="btn sm ghost danger" data-a="dropDelAsk">${ic('trash')}Excluir este drop</button></div>`}
   </div>`:''}
@@ -1230,7 +1248,7 @@ function renderDesk(){
 }
 function renderG(){
   const box=$('gres');if(!box)return;const q=ui.gq.trim().toLowerCase();if(!q){box.innerHTML='';return}
-  const ps=S.pecas.filter(p=>(p.nome+' '+p.code+' '+(p.marca||'')).toLowerCase().includes(q)).slice(0,6);
+  const ps=S.pecas.filter(p=>(p.nome+' '+p.code+' '+(p.marca||'')+' '+(p.venda?.cliente?.nome||'')+' '+(p.venda?.cliente?.insta||'')).toLowerCase().includes(q)).slice(0,6);
   const bs=S.brechos.filter(b=>(b.nome+' '+b.regiao).toLowerCase().includes(q)).slice(0,3);
   box.innerHTML=`<div class="gres">${ps.length?`<div class="gh">Peças</div>${ps.map(p=>`<div class="gi" data-a="openPeca" data-id="${p.id}">${photo(p,'th s')}<div style="flex:1;min-width:0"><b style="font-weight:500">${esc(p.nome)}</b><div class="mono">${p.code}${p.marca?' · '+esc(p.marca):''} · Drop ${D(p.dropId)?.n}</div></div>${st(col(p))}</div>`).join('')}`:''}${bs.length?`<div class="gh">Brechós</div>${bs.map(b=>`<div class="gi" data-a="openBrecho" data-id="${b.id}">${ic('brechos')}<span>${esc(b.nome)} <span class="muted">· ${esc(b.regiao)}</span></span></div>`).join('')}`:''}${!ps.length&&!bs.length?'<div class="gi muted">Nada encontrado.</div>':''}</div>`;
 }
@@ -1271,7 +1289,8 @@ function openPeca(id,listKey){ui.drawer={kind:'peca',id};if(listKey)ui.dl=listFo
 function focusMissing(id){setTimeout(()=>{const f=P(id);if(!f||!isInc(f))return;const k=!f.preco?'f-preco':!f.cat?'f-cat':!f.tam?'f-tam':null;if(k)$(k)?.focus()},40)}
 function doSale(p){const v=numIn($('sv')?.value);if(!v){toast('Digite o valor de venda');$('sv')?.focus();return false}
   const canal=document.querySelector('#sc button.on')?.dataset.v||'Instagram';
-  p.venda={valor:v,data:$('sd')?.value||TODAY,canal};p.status='vendida';if(!p.preco)p.preco=v;toast(`${p.code} vendida. Separe ${brl(reposicao(p))} para o caixa.`);return true}
+  const cl={};['nome','insta','cep','local'].forEach(k=>{const v2=($('sc-'+k)?.value||'').trim();if(v2)cl[k]=k==='insta'?'@'+v2.replace(/^@+/,''):v2});
+  p.venda={valor:v,data:$('sd')?.value||TODAY,canal};if(Object.keys(cl).length)p.venda.cliente=cl;p.status='vendida';if(!p.preco)p.preco=v;toast(`${p.code} vendida. Separe ${brl(reposicao(p))} para o caixa.`);return true}
 const newM=()=>({data:TODAY,ids:[],cur:null,items:[],km:null});
 function keepMInputs(){if($('mmarca'))ui.m.marca=$('mmarca').value;if($('mnome'))ui.m.nome=$('mnome').value;if($('mpago'))ui.m.pago=$('mpago').value}
 const A={
@@ -1401,6 +1420,13 @@ document.addEventListener('change',e=>{
   if(t.dataset.f){const p=P(t.dataset.id),k=t.dataset.f;p[k]=(k==='pago'||k==='preco')?numIn(t.value):(t.value.trim()||null);if(k==='nome'&&!p.nome)p.nome='Sem nome';refresh();if(!isInc(p)&&['preco','cat','tam'].includes(k)&&ui.dl.length&&ui.dl.indexOf(p.id)>=0&&p.status!=='vendida')toast(`${p.code} pronta`)}
   if(t.dataset.m){const p=P(t.dataset.id);p.medidas=p.medidas||{};p.medidas[t.dataset.m]=numIn(t.value)}
   if(t.dataset.s&&t.dataset.s!=='reinvest'){S.settings.confirmed=true;const k=t.dataset.s;S.settings[k]=(k==='home'||k==='dropDay')?t.value:(numIn(t.value)??S.settings[k]);renderDesk()}
+  if(t.dataset.cl){const box=t.closest('[data-vc]');let val=t.value.trim();
+    if(t.dataset.cl==='nome'){const c=clientes()[val.toLowerCase()];const pre=t.id.slice(0,3);if(c){['insta','cep','local'].forEach(k=>{const el=$(pre+k);if(el&&!el.value&&c[k])el.value=c[k]})}}
+    if(t.dataset.cl==='cep'){const d=val.replace(/\D/g,'');if(d.length===8){val=d.slice(0,5)+'-'+d.slice(5);t.value=val;const loc=$(t.id.slice(0,3)+'local');
+      if(loc&&!loc.value.trim()&&navigator.onLine)fetch('https://viacep.com.br/ws/'+d+'/json/').then(r=>r.json()).then(j=>{if(j&&!j.erro&&!loc.value.trim()){loc.value=[j.bairro,j.localidade&&(j.localidade+(j.uf?'/'+j.uf:''))].filter(Boolean).join(', ');loc.dispatchEvent(new Event('change',{bubbles:true}))}}).catch(()=>{})}}
+    if(t.dataset.cl==='insta'&&val)val='@'+val.replace(/^@+/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//,'').replace(/\/.*$/,'');
+    if(t.dataset.cl==='insta')t.value=val;
+    if(box){const p=P(box.dataset.vc);if(p&&p.venda){const c={...(p.venda.cliente||{})};['nome','insta','cep','local'].forEach(k=>{const el=$('vc-'+k);const v2=(el?.value||'').trim();if(v2)c[k]=v2;else delete c[k]});if(Object.keys(c).length)p.venda.cliente=c;else delete p.venda.cliente;flushSoon()}}}
   if(t.id==='mdrop'&&ui.m.g){ui.m.g.dropId=t.value||null}
   if(t.dataset.mkm){ui.m.g.km=numIn(t.value);renderPhone(true)}
   if(t.dataset.photo){const f=t.files&&t.files[0],id=t.dataset.photo;if(f){toast('Enviando foto…');shrink(f).then(r=>uploadPhoto(r)).then(r=>{const p=P(id);if(!p)return;if(r.fotoUrl){p.fotoUrl=r.fotoUrl;p.foto=null}else{p.fotoUrl=null;p.foto=r.url}refresh();flushSoon();toast(r.fotoUrl?'Foto salva':'Foto guardada no aparelho; envio quando tiver internet')})}}
