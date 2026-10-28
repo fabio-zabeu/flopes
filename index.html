@@ -642,6 +642,9 @@ const isStale=p=>(p.status==='anunciada'||p.status==='estoque')&&entry(p)<=TODAY
 const dias=p=>p.venda?diff(entry(p),p.venda.data):entry(p)>TODAY?null:diff(entry(p),TODAY);
 
 function nextDropDate(from){let d=addDays(from,1);while(s2d(d).getDay()!==+S.settings.dropDay)d=addDays(d,1);return d}
+function renumberDrops(){S.drops.sort((a,b)=>a.data.localeCompare(b.data));S.drops.forEach((x,i)=>x.n=i+1)}
+const nearDrop=date=>{const lim=addDays(date,7);return S.drops.filter(x=>x.data>date&&x.data<=lim).sort((a,b)=>a.data.localeCompare(b.data))[0]};
+function targetDrop(date){return nearDrop(date)||ensureDrop(nextDropDate(date))}
 function ensureDrop(date){let d=S.drops.find(x=>x.data===date);if(!d){d={id:uid('d'),n:0,data:date};S.drops.push(d);S.drops.sort((a,b)=>a.data.localeCompare(b.data));S.drops.forEach((x,i)=>x.n=i+1)}return d}
 const dropsSorted=()=>S.drops.slice().sort((a,b)=>b.data.localeCompare(a.data));
 const liveDrop=()=>S.drops.filter(x=>x.data<=TODAY).sort((a,b)=>b.data.localeCompare(a.data))[0];
@@ -757,7 +760,7 @@ const kpi=(k,v,s,o={})=>`<div class="kpi ${o.hl?'hl':''}"><div class="k">${o.ico
 const pc=p=>`<div class="pc">${photo(p,'th')}<div><b>${esc(p.nome||'Sem nome')}</b><span class="mono">${p.code}${p.marca?' · '+esc(p.marca):''}</span></div></div>`;
 const marcasConhecidas=()=>[...new Set([...MARCAS,...S.pecas.map(p=>p.marca).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'pt-BR'));
 const marcaList=()=>`<datalist id="marcas">${marcasConhecidas().map(m=>`<option value="${esc(m)}"></option>`).join('')}</datalist>`;
-const dlabel=d=>d?`Drop ${d.n} · ${fDay(d.data)}`:'—';
+const dlabel=d=>d?`Drop ${d.n}${d.nome?' · '+d.nome:''} · ${fDay(d.data)}`:'—';
 function strip(ps,n=5){return `<div class="strip">${ps.slice(0,n).map(p=>photo(p)).join('')}${ps.length>n?`<div class="more">+${ps.length-n}</div>`:''}</div>`}
 
 function barChart(items,o={}){
@@ -831,13 +834,13 @@ function vPainel(){
 function vDrops(){
   const ds=dropsSorted();
   const row=d=>{const s=dStats(d),stt=dStatus(d);return `<a class="dc ${stt==='prep'?'next':''}" href="#drop-${d.n}">
-    <div class="dn"><b>Drop ${d.n}</b><span>${fDow(d.data)}</span>${dPill(d)}</div>
+    <div class="dn"><b>Drop ${d.n}</b><span>${d.nome?esc(d.nome)+' · ':''}${fDow(d.data)}</span>${dPill(d)}</div>
     <div class="dm">${strip(s.ps,8)}</div>
     <div class="sv">${stt==='prep'?`<div class="row"><span><b style="color:var(--fg)">${s.ps.length-s.inc.length}/${s.ps.length}</b> prontas</span><span>${s.inc.length?s.inc.length+' a completar':'pronto'}</span></div><div class="prog"><b style="width:${(s.ps.length-s.inc.length)/Math.max(1,s.ps.length)*100}%"></b></div>`:`<div class="row"><span><b style="color:var(--fg)">${s.v.length}/${s.ps.length}</b> vendidas</span><span>${pct(s.st)}</span></div><div class="prog"><b style="width:${s.st*100}%"></b></div>`}</div>
     <div class="money r2"><b>${brl0(stt==='prep'?s.inv:s.rec)}</b><small>${stt==='prep'?'investido':'receita'}</small></div>
     <div class="money"><b class="${stt==='prep'?'':s.luc>=0?'pos':'neg'}">${stt==='prep'?brl0(s.pot):brl0(s.luc)}</b><small>${stt==='prep'?'em preço de venda':'lucro'}</small></div>
     ${ic('chev')}</a>`};
-  return head('Drops',`Um drop por semana, toda ${DOW[+S.settings.dropDay]}. As peças de cada garimpo entram no drop seguinte.`)+(ds.length?`<div class="drops">${ds.map(row).join('')}</div>`:`<div class="empty">Nenhum drop ainda. O primeiro é criado quando você salva um garimpo pelo celular.</div>`);
+  return head('Drops',`Um drop por semana, toda ${DOW[+S.settings.dropDay]}. As peças de cada garimpo entram no próximo drop.`,`<button class="btn" data-a="dropNew">${ic('plus',2)}Novo drop</button>`)+(ds.length?`<div class="drops">${ds.map(row).join('')}</div>`:`<div class="empty">Nenhum drop ainda. Crie um em Novo drop, ou ele é criado sozinho quando você salva um garimpo pelo celular.</div>`);
 }
 
 function vDrop(n){
@@ -846,7 +849,7 @@ function vDrop(n){
   const idx=dropsSorted();const i=idx.indexOf(d);const newer=idx[i-1],older=idx[i+1];
   const prontas=ps.filter(p=>col(p)==='estoque');
   const navb=(x,lab,icn)=>x?`<a class="btn icon" href="#drop-${x.n}" aria-label="${lab}" title="${lab}: Drop ${x.n}">${ic(icn)}</a>`:`<span class="btn icon" style="opacity:.35" aria-hidden="true">${ic(icn)}</span>`;
-  let actions=navb(older,'Drop anterior','back')+navb(newer,'Drop seguinte','chev');
+  let actions=navb(older,'Drop anterior','back')+navb(newer,'Drop seguinte','chev')+`<button class="btn" data-a="dropEdit" data-id="${d.id}">Editar drop</button>`;
   if(s.inc.length)actions+=`<button class="btn" data-a="openPeca" data-id="${s.inc[0].id}" data-list="inc:${d.id}">Completar ${s.inc.length} peça${s.inc.length>1?'s':''}</button>`;
   if(prontas.length)actions+=`<button class="btn pri" data-a="launch" data-id="${d.id}">${stt==='prep'?'Lançar drop':'Anunciar'} · ${prontas.length} prontas</button>`;
   const kp=stt==='prep'
@@ -866,7 +869,7 @@ function vDrop(n){
       <tfoot><tr><td>Total</td><td></td><td class="r">${brl(gPago(g))}</td><td class="r">${brl(gGas(g))}</td><td class="r">${brl(gPago(g)+gGas(g))}</td><td></td><td></td></tr></tfoot></table></div></div>`}).join('')||'<div class="empty">Nenhum garimpo ligado a este drop.</div>'}
       <p class="muted" style="font-size:12px;margin:0">A gasolina de cada garimpo é dividida entre as peças proporcionalmente ao valor pago. Uma peça de R$ 40 carrega o dobro de gasolina de uma de R$ 20.</p></div>`;
   }
-  return `<div class="ph-row"><div><a class="back" href="#drops">${ic('back')}Todos os drops</a><div class="row" style="gap:12px"><h1>Drop ${d.n}</h1>${dPill(d)}</div><p>${cap(DOW[s2d(d.data).getDay()])}, ${fDay(d.data)} · ${rel(d.data)} · ${ps.length} peças</p></div><div class="row">${actions}</div></div>
+  return `<div class="ph-row"><div><a class="back" href="#drops">${ic('back')}Todos os drops</a><div class="row" style="gap:12px"><h1>Drop ${d.n}${d.nome?` <span class="muted" style="font-weight:500">· ${esc(d.nome)}</span>`:''}</h1>${dPill(d)}</div><p>${cap(DOW[s2d(d.data).getDay()])}, ${fDay(d.data)} · ${rel(d.data)} · ${ps.length} peças</p></div><div class="row">${actions}</div></div>
   <div class="kpis">${kp}</div>
   <div class="tabs">${[['quadro','Quadro'],['lista','Lista',ps.length],['custos','Garimpo e custos']].map(([k,l,c])=>`<button class="${ui.dt===k?'on':''}" data-a="dt" data-v="${k}">${l}${c!=null?` <span class="c">${c}</span>`:''}</button>`).join('')}</div>${body}`;
 }
@@ -1111,6 +1114,20 @@ function saleModal(){
     <div class="pick-li" style="cursor:default;background:var(--fill)">${photo(p,'th')}<div class="grow"><b>${esc(p.nome)}</b><span class="mono">${p.code} · custo real ${brl(custo(p))}</span></div></div>${saleForm(p)}</div>
     <div class="m-f"><button class="btn ghost" data-a="closeModal">Cancelar</button><button class="btn pri" data-a="sellOk" data-id="${p.id}">Confirmar venda</button></div>`;
 }
+function dropModal(){
+  const f=ui.df,d=f.id?D(f.id):null,ps=d?pecasDrop(d):[];
+  const others=dropsSorted().filter(x=>x.id!==f.id);
+  return `<div class="m-h"><b>${d?`Editar Drop ${d.n}`:'Novo drop'}</b><button class="x" data-a="closeModal" aria-label="Fechar">${ic('x')}</button></div><div class="m-b">
+  <div class="g2"><div class="fld"><label for="df-data">Data do drop</label><input class="input" id="df-data" type="date" value="${f.data}"></div>
+  <div class="fld"><label for="df-nome">Nome <span class="faint">(opcional)</span></label><input class="input" id="df-nome" value="${esc(f.nome||'')}" placeholder="Ex.: Especial de Natal" autocomplete="off"></div></div>
+  <p class="muted" style="margin:0;font-size:13px">Os drops são numerados pela data. ${d?'Se a nova data passar de outro drop, os números se reorganizam.':'Garimpos entram no drop que acontece até 7 dias depois deles.'}</p>
+  ${d?`<div style="border-top:1px solid var(--line);padding-top:14px" class="stack">
+    ${ps.length?`<div class="fld"><label for="df-move">Para excluir, mova as ${ps.length} peças para outro drop</label><div class="row nowrap"><select class="input" id="df-move"><option value="">Escolher drop</option>${others.map(x=>`<option value="${x.id}">${dlabel(x)}</option>`).join('')}</select><button class="btn" data-a="dropMove" data-id="${d.id}">Mover</button></div></div>`
+      :ui.dfDel?`<div class="row"><span>Excluir o Drop ${d.n}?</span><button class="btn sm danger" data-a="dropDelOk" data-id="${d.id}">Excluir</button><button class="btn sm ghost" data-a="dropDelNo">Cancelar</button></div>`
+      :`<div><button class="btn sm ghost danger" data-a="dropDelAsk">${ic('trash')}Excluir este drop</button></div>`}
+  </div>`:''}
+  </div><div class="m-f"><button class="btn ghost" data-a="closeModal">Cancelar</button><button class="btn pri" data-a="dropSave">${d?'Salvar':'Criar drop'}</button></div>`;
+}
 function newPecaModal(){
   const f=ui.np;
   return `<div class="m-h"><b>Nova peça</b><button class="x" data-a="closeModal" aria-label="Fechar">${ic('x')}</button></div><div class="m-b">
@@ -1127,7 +1144,7 @@ function newPecaModal(){
 /* ================= app de celular ================= */
 function mBudget(){const g=ui.m.g;const base=caixa();if(!g)return{base,left:base,spent:0,gas:0};
   const gas=gasCost(g.km??route(g.ids).km),spent=sum(g.items,x=>x.pago);return{base,spent,gas,left:base-spent-gas}}
-function dropNameFor(date){const pd=nextDropDate(date);const d=S.drops.find(x=>x.data===pd);return{name:d?`Drop ${d.n}`:`Drop ${S.drops.filter(x=>x.data<pd).length+1}`,date:pd}}
+function dropNameFor(date){const d=nearDrop(date);if(d)return{name:`Drop ${d.n}${d.nome?' · '+d.nome:''}`,date:d.data};const pd=nextDropDate(date);return{name:`Drop ${S.drops.filter(x=>x.data<pd).length+1}`,date:pd}}
 function phoneHTML(){
   const m=ui.m,g=m.g;const nd=dropNameFor(g?g.data:TODAY);
   const topPad=ui.phonePreview?'54px':'22px';
@@ -1223,7 +1240,7 @@ function renderLayer(keep){
     if(html)h+=`<div class="scrim" data-a="closeDrawer"></div><aside class="drawer" role="dialog" aria-modal="true">${html}</aside>`;else ui.drawer=null}
   if(ui.modal){const k=ui.modal.kind;
     if(k==='phone')h+=`<div class="scrim top dark" data-a="closeModal"></div><div class="phone-w"><div class="phone-note"><h3>Cadastro no celular</h3><p>Assim o Flopes funciona na rua, em três passos:</p><ol><li>Escolha o brechó onde está</li><li>Tire a foto e digite o valor</li><li>Ao encerrar, informe os km</li></ol><p>As peças aparecem aqui no próximo drop, na coluna A completar. Abra este link no celular para usar em tela cheia.</p><button class="btn" data-a="closeModal">Fechar</button></div><div class="phone" id="phoneBox">${phoneHTML()}</div></div>`;
-    else{const html=k==='bform'?brechoForm():k==='sale'?saleModal():k==='newPeca'?newPecaModal():'';h+=`<div class="scrim top" data-a="closeModal"></div><div class="modalw"><div class="modal ${k==='bform'?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`}}
+    else{const html=k==='bform'?brechoForm():k==='sale'?saleModal():k==='newPeca'?newPecaModal():k==='drop'?dropModal():'';h+=`<div class="scrim top" data-a="closeModal"></div><div class="modalw"><div class="modal ${k==='bform'?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`}}
   L.innerHTML=h;
   if(sc&&L.querySelector('.dr-b'))L.querySelector('.dr-b').scrollTop=sc;
   if(msc&&L.querySelector('.modal'))L.querySelector('.modal').scrollTop=msc;
@@ -1294,8 +1311,20 @@ const A={
   saleNew:()=>{ui.modal={kind:'sale',id:null,q:''};renderLayer();setTimeout(()=>$('saleQ')?.focus(),30)},
   salePick:el=>{ui.modal.id=el.dataset.id;renderLayer();setTimeout(()=>$('sv')?.select(),30)},
   newPeca:()=>{ui.np={nome:'',marca:'',cat:'',pago:null,brechoId:S.brechos[0]?.id||'',dropId:prepDrop()?.id||''};ui.modal={kind:'newPeca'};renderLayer();setTimeout(()=>$('np-nome')?.focus(),30)},
+  dropNew:()=>{const last=dropsSorted()[0];const base=last&&last.data>=TODAY?last.data:addDays(TODAY,-1);ui.df={id:null,data:nextDropDate(base),nome:''};ui.dfDel=false;ui.modal={kind:'drop'};renderLayer()},
+  dropEdit:el=>{const d=D(el.dataset.id);ui.df={id:d.id,data:d.data,nome:d.nome||''};ui.dfDel=false;ui.modal={kind:'drop'};renderLayer()},
+  dropSave:()=>{const f=ui.df,data=$('df-data').value,nome=$('df-nome').value.trim();
+    if(!data){toast('Escolha a data do drop');$('df-data').focus();return}
+    if(S.drops.some(x=>x.data===data&&x.id!==f.id)){toast(`Já existe um drop em ${fDay(data)}. Escolha outra data.`);$('df-data').focus();return}
+    let d;if(f.id){d=D(f.id);d.data=data;d.nome=nome||null}else{d={id:uid('d'),n:0,data,nome:nome||null};S.drops.push(d)}
+    renumberDrops();ui.modal=null;toast(f.id?`Drop ${d.n} salvo para ${fDow(data)}`:`Drop ${d.n} criado para ${fDow(data)}`);
+    if(location.hash==='#drop-'+d.n)render();else location.hash='drop-'+d.n},
+  dropMove:el=>{const d=D(el.dataset.id),to=$('df-move').value;if(!to){toast('Escolha para qual drop mover');return}
+    let n=0;S.pecas.forEach(p=>{if(p.dropId===d.id){p.dropId=to;n++}});S.garimpos.forEach(g=>{if(g.dropId===d.id)g.dropId=to});renderLayer();renderDesk();toast(`${n} peças movidas para o ${dlabel(D(to))}`)},
+  dropDelAsk:()=>{ui.dfDel=true;renderLayer()},dropDelNo:()=>{ui.dfDel=false;renderLayer()},
+  dropDelOk:el=>{const id=el.dataset.id;if(S.pecas.some(p=>p.dropId===id))return;S.drops=S.drops.filter(x=>x.id!==id);S.garimpos.forEach(g=>{if(g.dropId===id)g.dropId=null});renumberDrops();ui.modal=null;ui.dfDel=false;toast('Drop excluído');if(location.hash==='#drops')render();else location.hash='drops'},
   saveNewPeca:()=>{const f=ui.np;if(!f.nome.trim()){toast('Dê um nome à peça');$('np-nome').focus();return}if(f.pago==null){toast('Digite o valor pago');$('np-pago').focus();return}
-    const p={id:uid('p'),code:nextCode(),nome:f.nome.trim(),marca:(f.marca||'').trim()||null,foto:null,cat:f.cat||null,tam:null,epoca:null,estado:null,medidas:{},brechoId:f.brechoId||null,garimpoId:null,dropId:f.dropId||ensureDrop(nextDropDate(TODAY)).id,pago:f.pago,preco:null,status:'estoque',venda:null};
+    const p={id:uid('p'),code:nextCode(),nome:f.nome.trim(),marca:(f.marca||'').trim()||null,foto:null,cat:f.cat||null,tam:null,epoca:null,estado:null,medidas:{},brechoId:f.brechoId||null,garimpoId:null,dropId:f.dropId||targetDrop(TODAY).id,pago:f.pago,preco:null,status:'estoque',venda:null};
     S.pecas.push(p);ui.modal=null;refresh();openPeca(p.id);toast(`${p.code} criada`)},
   phoneOpen:()=>{ui.phonePreview=true;ui.modal={kind:'phone'};renderLayer()},
   forceDesk:()=>{ui.forceDesk=true;render();scrollTo(0,0)},
@@ -1319,7 +1348,7 @@ const A={
     if(v==null){toast('Digite quanto você pagou');$('mpago').focus();return}
     const marca=($('mmarca')?.value||'').trim()||null;g.items.push({nome:nome?nome[0].toUpperCase()+nome.slice(1):m.cat,marca,pago:v,foto:m.tmp,fotoP:m.tmpP||null,cat:m.cat,b:g.cur});m.tmp=null;m.tmpP=null;m.cat=null;m.nome='';m.pago='';m.marca='';renderPhone();toast(`Peça adicionada · ${brl(v)}`)},
   mDel:el=>{keepMInputs();ui.m.g.items.splice(+el.dataset.v,1);renderPhone(true)},
-  mSave:()=>{const m=ui.m,g=m.g;const km=g.km??route(g.ids).km;const drop=ensureDrop(nextDropDate(g.data));
+  mSave:()=>{const m=ui.m,g=m.g;const km=g.km??route(g.ids).km;const drop=targetDrop(g.data);
     const ids=g.ids.filter(i=>g.items.some(x=>x.b===i));const gar={id:uid('g'),data:g.data,brechoIds:ids,km,dropId:drop.id};S.garimpos.push(gar);
     g.items.forEach(it=>{const pc={id:uid('p'),code:nextCode(),nome:it.nome,marca:it.marca||null,foto:it.foto||null,fotoUrl:null,cat:it.cat,tam:null,epoca:null,estado:null,medidas:{},brechoId:it.b,garimpoId:gar.id,dropId:drop.id,pago:it.pago,preco:null,status:'estoque',venda:null};S.pecas.push(pc);
       if(it.fotoP)it.fotoP.then(u=>{const q=P(pc.id);if(u&&q){q.fotoUrl=u;q.foto=null;flushSoon()}})});
