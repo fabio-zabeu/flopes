@@ -446,6 +446,9 @@ canvas.sp-cat.on{opacity:1;transform:none}
 .m-gest .m-gest-ic{width:40px;height:40px;border-radius:12px;background:var(--fill);display:flex;align-items:center;justify-content:center;flex:none}
 .m-gest .m-gest-ic svg{width:20px;height:20px;color:var(--fg)}
 .m-gest b{font-size:15px}
+.kact{display:inline-flex;align-items:center;gap:6px;margin-top:10px;align-self:flex-start;height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:600;background:rgba(127,127,127,.22);color:inherit;border:0;cursor:pointer}
+.kact svg{width:13px;height:13px}
+.kact:hover{background:rgba(127,127,127,.32)}
 .tipb{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid currentColor;font:600 10px/1 var(--serif);font-style:italic;opacity:.55;margin-left:6px;vertical-align:1px;cursor:pointer;flex:none;padding:0;color:inherit;background:none;text-transform:none;letter-spacing:0}
 .tipb:hover,.tipb:focus-visible{opacity:1}
 .kpi .k .tipb{margin-left:0}
@@ -650,7 +653,7 @@ const glyph=c=>`<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strok
 const fotoSrc=p=>p.fotoUrl||p.foto;
 const photo=(p,cls='')=>{const u=fotoSrc(p);return `<div class="ph ${cls}">${u?`<img src="${esc(u)}" alt="" onerror="this.remove()">`:glyph(p.cat)}</div>`};
 
-const S={settings:{gas:6.29,kmL:11,markup:3,reinvest:30,dropDay:4,stale:30,inicial:600,home:'Asa Norte',confirmed:true},brechos:[],garimpos:[],drops:[],pecas:[],despesas:[]};
+const S={settings:{gas:6.29,kmL:11,markup:3,reinvest:30,dropDay:4,stale:30,inicial:600,home:'Asa Norte',confirmed:true},brechos:[],garimpos:[],drops:[],pecas:[],despesas:[],movs:[]};
 const B=id=>S.brechos.find(b=>b.id===id);
 const G=id=>S.garimpos.find(g=>g.id===id);
 const P=id=>S.pecas.find(p=>p.id===id);
@@ -713,6 +716,7 @@ function lastDropDate(){const l=liveDrop();return l?l.data:addDays(TODAY,-7)}
 function ledger(){
   const rows=[];
   S.pecas.filter(p=>p.venda).forEach(p=>rows.push({data:p.venda.data,tipo:'venda',desc:`Venda ${p.code} · ${p.nome}`,id:p.id,v:reposicao(p)}));
+  S.movs.forEach(m=>rows.push({data:m.data,tipo:'mov',desc:(m.v>0?'Dinheiro colocado':'Dinheiro retirado')+(m.desc?` · ${m.desc}`:''),mid:m.id,v:m.v||0}));
   S.despesas.forEach(d=>rows.push({data:d.data,tipo:'despesa',desc:`${d.cat} · ${d.desc||'sem descrição'}`,did:d.id,v:-(d.valor||0)}));
   S.garimpos.forEach(g=>rows.push({data:g.data,tipo:'garimpo',desc:`Garimpo · ${g.brechoIds.map(i=>B(i)?.nome).join(', ')}`,gid:g.id,v:-(gPago(g)+gGas(g)),gas:gGas(g),pecas:gPago(g)}));
   rows.sort((a,b)=>a.data.localeCompare(b.data)||(a.tipo==='garimpo'?1:-1));
@@ -810,7 +814,8 @@ const isPhone=()=>innerWidth<760&&!ui.forceDesk;
 
 /* ================= componentes ================= */
 const head=(title,sub,actions='',back='')=>`<div class="ph-row"><div>${back}<h1>${title}</h1>${sub?`<p>${sub}</p>`:''}</div>${actions?`<div class="row">${actions}</div>`:''}</div>`;
-const kpi=(k,v,s,o={})=>`<div class="kpi ${o.hl?'hl':''}"><div class="k">${o.icon?ic(o.icon):''}${k}</div><div class="v ${o.cls||''}">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+const kpi=(k,v,s,o={})=>`<div class="kpi ${o.hl?'hl':''}"><div class="k">${o.icon?ic(o.icon):''}${k}</div><div class="v ${o.cls||''}">${v}</div>${s?`<div class="s">${s}</div>`:''}${o.act||''}</div>`;
+const cxBtn=()=>`<button class="kact" data-a="movNew">${ic('plus',2)}Colocar ou tirar dinheiro</button>`;
 const pc=p=>`<div class="pc">${photo(p,'th')}<div><b>${esc(p.nome||'Sem nome')}</b><span class="mono">${p.code}${p.marca?' · '+esc(p.marca):''}</span></div></div>`;
 const marcasConhecidas=()=>[...new Set([...MARCAS,...S.pecas.map(p=>p.marca).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'pt-BR'));
 const marcaList=()=>`<datalist id="marcas">${marcasConhecidas().map(m=>`<option value="${esc(m)}"></option>`).join('')}</datalist>`;
@@ -833,7 +838,7 @@ function settingsCallout(){if(S.settings.confirmed!==false)return '';const s=S.s
 function vPainel(){
   const today=s2d(TODAY),live=liveDrop(),prep=prepDrop();
   if(!S.pecas.length)return head(`${cap(DOW[today.getDay()])}, ${today.getDate()} de ${MESL[today.getMonth()]}`,'Seu Flopes está pronto. Assim funciona a semana:')+settingsCallout()+`
-  <div class="kpis">${kpi('Caixa para o primeiro garimpo',brl0(caixa()),'você pode mudar em Ajustes',{hl:1,icon:'caixa'})}</div>
+  <div class="kpis">${kpi('Caixa para o primeiro garimpo',brl0(caixa()),'dinheiro reservado para comprar peças',{hl:1,icon:'caixa',act:cxBtn()})}</div>
   <div class="steps3">
     <div class="step3"><span class="n">1</span><b>Revise os brechós</b><p>${S.brechos.length?`Já deixei ${S.brechos.length} brechós de Brasília cadastrados. Confira endereços e adicione os seus.`:'Cadastre os brechós onde você garimpa.'}</p><a class="btn sm" href="#brechos">Ver brechós</a></div>
     <div class="step3"><span class="n">2</span><b>Garimpe com o celular</b><p>Abra este link no celular, tire a foto de cada peça e digite o valor pago.</p><button class="btn sm" data-a="phoneOpen">${ic('phone')}Ver cadastro no celular</button></div>
@@ -867,7 +872,7 @@ function vPainel(){
   const att=[...res.map(p=>({p,t:'Reservada · cobrar a cliente',a:`<button class="btn sm" data-a="openPeca" data-id="${p.id}">Abrir</button>`})),...stale.map(p=>({p,t:`Parada há ${diff(entry(p),TODAY)} dias`,a:`<button class="btn sm" data-a="applyMd" data-id="${p.id}">Baixar para ${brl0(markdown(p))}</button>`}))].slice(0,7);
   return head(`${cap(DOW[today.getDay()])}, ${today.getDate()} de ${MESL[today.getMonth()]}`,prep?`Drop ${prep.n} vai ao ar ${DOW[s2d(prep.data).getDay()]}, ${fDay(prep.data)} (${rel(prep.data)}).`:'',`<button class="btn hide-s" data-a="phoneOpen">${ic('phone')}Cadastro no celular</button>`)+`
   ${settingsCallout()}<div class="kpis">
-    ${kpi('Caixa para o próximo garimpo',brl0(caixa()),`inclui ${brl0(sum(ciclo,reposicao))} das vendas desta semana`,{hl:1,icon:'caixa'})}
+    ${kpi('Caixa para o próximo garimpo',brl0(caixa()),`inclui ${brl0(sum(ciclo,reposicao))} das vendas desta semana`,{hl:1,icon:'caixa',act:cxBtn()})}
     ${kpi(`Lucro líquido em ${MESL[today.getMonth()]}`,brl0(lm),dm?`já descontados ${brl0(dm)} de materiais`:lpm?`${lm>=lpm?'+':''}${pct((lm-lpm)/Math.abs(lpm))} vs ${MESL[(today.getMonth()+11)%12]} inteiro`:'',{icon:'relatorios'})}
     ${kpi('Vendas desde o último drop',String(ciclo.length),`${brl0(sum(ciclo,p=>p.venda.valor))} vendidos desde ${fDay(ld)}`,{icon:'vendas'})}
     ${kpi('À venda agora',String(stock.length),`${brl0(sum(stock,p=>p.preco||0))} em preço de venda`,{icon:'pecas'})}
@@ -1024,16 +1029,27 @@ function despModal(){
   ${d?`<div style="border-top:1px solid var(--line);padding-top:14px">${ui.dspDel?`<div class="row"><span>Excluir este gasto?</span><button class="btn sm danger" data-a="despDelOk">Excluir</button><button class="btn sm ghost" data-a="despDelNo">Cancelar</button></div>`:`<button class="btn sm ghost danger" data-a="despDelAsk">${ic('trash')}Excluir gasto</button>`}</div>`:''}
   </div><div class="m-f"><button class="btn ghost" data-a="closeModal">Cancelar</button><button class="btn pri" data-a="despSave">Salvar gasto</button></div>`;
 }
+function movModal(){const f=ui.mv,d=f.id?S.movs.find(x=>x.id===f.id):null;
+  const after=caixa()-(d?d.v:0)+(f.tipo==='in'?1:-1)*(f.valor||0);
+  return `<div class="m-h"><b>${d?'Editar movimentação':'Ajustar o caixa'}</b><button class="x" data-a="closeModal" aria-label="Fechar">${ic('x')}</button></div><div class="m-b">
+  <div class="seg" style="display:flex">${[['in','Colocar dinheiro'],['out','Tirar dinheiro']].map(([k,l])=>`<button style="flex:1;height:36px" class="${f.tipo===k?'on':''}" data-a="mvTipo" data-v="${k}">${l}</button>`).join('')}</div>
+  <div class="fld"><label for="mv-valor">Valor</label><div class="affix"><span>R$</span><input class="input num" id="mv-valor" inputmode="decimal" value="${f.valor!=null?String(f.valor).replace('.',','):''}" placeholder="0,00" autocomplete="off"></div></div>
+  <div class="fld"><label for="mv-desc">Motivo <span class="faint">(opcional)</span></label><input class="input" id="mv-desc" value="${esc(f.desc||'')}" placeholder="${f.tipo==='in'?'Ex.: dinheiro extra para o drop de Natal':'Ex.: usei para outra coisa'}" autocomplete="off"></div>
+  <div class="fld"><label for="mv-data">Data</label><input class="input" id="mv-data" type="date" value="${f.data}"></div>
+  <div class="callout">${ic('info')}<p>${f.tipo==='in'?'O valor entra no caixa e aumenta o orçamento do próximo garimpo. Não conta como lucro.':'O valor sai do caixa e diminui o orçamento do próximo garimpo. Não conta como despesa do brechó.'} Caixa depois: <b class="num" id="mv-after">${brl(after)}</b></p></div>
+  ${d?`<div>${ui.mvDel?`<div class="row"><span>Excluir esta movimentação?</span><button class="btn sm danger" data-a="movDelOk">Excluir</button><button class="btn sm ghost" data-a="movDelNo">Cancelar</button></div>`:`<button class="btn sm ghost danger" data-a="movDelAsk">${ic('trash')}Excluir</button>`}</div>`:''}
+  </div><div class="m-f"><button class="btn ghost" data-a="closeModal">Cancelar</button><button class="btn pri" data-a="movSave">Salvar</button></div>`}
+function keepMv(){const f=ui.mv;if(!f)return;if($('mv-valor'))f.valor=numIn($('mv-valor').value);if($('mv-desc'))f.desc=$('mv-desc').value;if($('mv-data'))f.data=$('mv-data').value||TODAY}
 function vCaixa(){
   const L=ledger(),tot=caixa(),ld=lastDropDate();
   const ciclo=S.pecas.filter(p=>p.venda&&p.venda.data>=ld);
   const ent=sum(L.filter(r=>r.v>0),r=>r.v),sai=-sum(L.filter(r=>r.v<0),r=>r.v);
-  return head('Caixa de reposição','O dinheiro separado para comprar peças e materiais. Entra a cada venda, sai a cada garimpo e a cada gasto.')+`
-  <div class="kpis">${kpi('Saldo disponível',brl0(tot),'orçamento do próximo garimpo',{hl:1,icon:'caixa'})}${kpi('Separar desta semana',brl0(sum(ciclo,reposicao)),`${ciclo.length} vendas desde ${fDay(ld)}`)}${kpi('Total que entrou',brl0(ent),'reposição das vendas')}${kpi('Saídas',brl0(sai),`garimpos e ${brl0(sum(S.despesas,x=>x.valor||0))} em materiais`)}</div>
+  return head('Caixa de reposição','O dinheiro separado para comprar peças e materiais. Entra a cada venda, sai a cada garimpo e a cada gasto.',`<button class="btn pri" data-a="movNew">${ic('plus',2)}Colocar ou tirar dinheiro</button>`)+`
+  <div class="kpis">${kpi('Saldo disponível',brl0(tot),'orçamento do próximo garimpo',{hl:1,icon:'caixa',act:cxBtn()})}${kpi('Separar desta semana',brl0(sum(ciclo,reposicao)),`${ciclo.length} vendas desde ${fDay(ld)}`)}${kpi('Total que entrou',brl0(ent),'reposição das vendas')}${kpi('Saídas',brl0(sai),`garimpos e ${brl0(sum(S.despesas,x=>x.valor||0))} em materiais`)}</div>
   <div class="callout" style="margin-bottom:22px">${ic('info')}<p>A cada venda vai para o caixa o <b>custo real da peça</b> (o que você pagou + a gasolina) e mais <b>${S.settings.reinvest}% do lucro</b>. O custo mantém o estoque do mesmo tamanho; a parte do lucro faz cada drop crescer um pouco. Os outros ${100-S.settings.reinvest}% do lucro são seus. <a class="lnk" href="#ajustes">Mudar a porcentagem</a></p></div>
   <div class="sec-h"><h2>Movimentações</h2><span class="muted">mais recentes primeiro</span></div>
   <div class="tw"><table class="t"><thead><tr><th>Data</th><th>Descrição</th><th class="r">Entrada</th><th class="r">Saída</th><th class="r">Saldo</th></tr></thead><tbody>
-  ${L.slice().reverse().map(r=>`<tr class="click" ${r.id?`data-a="openPeca" data-id="${r.id}"`:r.did?`data-a="despEdit" data-id="${r.did}"`:`data-a="goDropG" data-id="${r.gid}"`}><td>${fDow(r.data)}</td><td style="max-width:440px;overflow:hidden;text-overflow:ellipsis">${r.tipo==='garimpo'?`<b style="font-weight:500">${esc(r.desc)}</b> <span class="muted">· ${brl(r.pecas)} peças + ${brl(r.gas)} gasolina</span>`:esc(r.desc)}</td><td class="r pos">${r.v>0?'+ '+brl(r.v):''}</td><td class="r">${r.v<0?'− '+brl(-r.v):''}</td><td class="r"><b>${brl(r.saldo)}</b></td></tr>`).join('')}
+  ${L.slice().reverse().map(r=>`<tr class="click" ${r.id?`data-a="openPeca" data-id="${r.id}"`:r.did?`data-a="despEdit" data-id="${r.did}"`:r.mid?`data-a="movEdit" data-id="${r.mid}"`:`data-a="goDropG" data-id="${r.gid}"`}><td>${fDow(r.data)}</td><td style="max-width:440px;overflow:hidden;text-overflow:ellipsis">${r.tipo==='garimpo'?`<b style="font-weight:500">${esc(r.desc)}</b> <span class="muted">· ${brl(r.pecas)} peças + ${brl(r.gas)} gasolina</span>`:r.tipo==='mov'?`<b style="font-weight:500">${esc(r.desc)}</b>`:esc(r.desc)}</td><td class="r pos">${r.v>0?'+ '+brl(r.v):''}</td><td class="r">${r.v<0?'− '+brl(-r.v):''}</td><td class="r"><b>${brl(r.saldo)}</b></td></tr>`).join('')}
   <tr><td class="muted">início</td><td class="muted">Capital inicial</td><td class="r pos">+ ${brl(S.settings.inicial)}</td><td></td><td class="r"><b>${brl(S.settings.inicial)}</b></td></tr></tbody></table></div>`;
 }
 
@@ -1256,7 +1272,7 @@ function phoneHTML(){
     const bd=mBudget();const recent=S.garimpos.slice().sort((a,b)=>b.data.localeCompare(a.data)).slice(0,4);
     return `<div class="m"><div class="m-body" style="padding-top:${topPad}">
       <div class="m-hero row" style="justify-content:space-between;align-items:flex-start"><div><span class="wordmark">Flopes</span><p>Cadastro de garimpo</p></div>${themeBtn()}</div>
-      <div class="budget"><span class="k">Você pode gastar hoje</span><span class="v">${brl0(bd.base)}</span><span class="s">saldo do caixa de reposição, já com a gasolina</span></div>
+      <div class="budget"><span class="k">Você pode gastar hoje</span><span class="v">${brl0(bd.base)}</span><span class="s">saldo do caixa de reposição, já com a gasolina</span>${!ui.phonePreview?`<button class="kact" data-a="mMov">${ic('plus',2)}Colocar ou tirar dinheiro</button>`:''}</div>
       ${g?`<button class="btn pri lg full" data-a="mGo" data-v="cap">Continuar garimpo · ${g.items.length} peças</button><button class="btn full" data-a="mCancel">Descartar garimpo em andamento</button>`:`<button class="btn pri lg full" data-a="mStart">${ic('plus',2.2)}Começar garimpo</button>`}<button class="btn full" data-a="mGasto">${ic('despesas')}Registrar gasto com material</button>
       ${!ui.phonePreview?'<div class="m-sep" role="separator"></div>':''}
       ${!ui.phonePreview?(()=>{const inc=S.pecas.filter(isInc).length,res=S.pecas.filter(p=>p.status==='reservada').length;const hint=[inc&&`${inc} para completar`,res&&`${res} reservada${res>1?'s':''}`].filter(Boolean).join(' · ');
@@ -1268,6 +1284,13 @@ function phoneHTML(){
       <p class="muted" style="font-size:12px;text-align:center;margin:4px 0 0">Tudo fica salvo e aparece no computador, mesmo se faltar sinal agora.</p>
     </div></div>`;
   }
+  if(m.screen==='mov'){const f=m.mv;
+    return `<div class="m"><div class="m-top"><button class="x" data-a="mGo" data-v="home" aria-label="Voltar">${ic('back')}</button><div class="t">Ajustar o caixa<small>hoje: ${brl0(caixa())}</small></div><span style="width:38px"></span></div>
+    <div class="m-body"><div class="seg" style="display:flex">${[['in','Colocar dinheiro'],['out','Tirar dinheiro']].map(([k,l])=>`<button style="flex:1;height:42px" class="${f.tipo===k?'on':''}" data-a="mMvTipo" data-v="${k}">${l}</button>`).join('')}</div>
+    <div class="fld"><label for="mm-valor">Valor</label><div class="bigval"><span>R$</span><input id="mm-valor" inputmode="decimal" placeholder="0" value="${esc(f.valor||'')}" autocomplete="off"></div></div>
+    <div class="fld"><label for="mm-desc">Motivo <span class="faint">(opcional)</span></label><input class="input" id="mm-desc" value="${esc(f.desc||'')}" placeholder="Ex.: dinheiro extra do mês" autocomplete="off"></div>
+    <p class="muted" style="margin:0;font-size:12px">${f.tipo==='in'?'Aumenta o orçamento do próximo garimpo. Não conta como lucro.':'Diminui o orçamento do próximo garimpo. Não conta como despesa.'}</p></div>
+    <div class="m-foot"><button class="btn pri lg full" data-a="mMvSave">Salvar</button></div></div>`}
   if(m.screen==='gasto'){const f=m.gs;
     return `<div class="m"><div class="m-top"><button class="x" data-a="mGo" data-v="home" aria-label="Voltar">${ic('back')}</button><div class="t">Gasto com material<small>sai do caixa de reposição</small></div><span style="width:38px"></span></div>
     <div class="m-body"><div class="fld"><span class="lbl">Categoria</span><div class="hscroll">${DCATS.map(c=>`<button class="chip ${f.cat===c?'on':''}" data-a="mGcat" data-v="${c}">${c}</button>`).join('')}</div>${DCAT_HINT[f.cat]?`<span class="hint">${DCAT_HINT[f.cat]}</span>`:''}</div>
@@ -1411,7 +1434,7 @@ function renderLayer(keep){
     if(html)h+=`<div class="scrim" data-a="closeDrawer"></div><aside class="drawer" role="dialog" aria-modal="true">${html}</aside>`;else ui.drawer=null}
   if(ui.modal){const k=ui.modal.kind;
     if(k==='phone')h+=`<div class="scrim top dark" data-a="closeModal"></div><div class="phone-w"><div class="phone-note"><h3>Cadastro no celular</h3><p>Assim o Flopes funciona na rua, em três passos:</p><ol><li>Escolha o brechó onde está</li><li>Tire a foto e digite o valor</li><li>Ao encerrar, informe os km</li></ol><p>As peças aparecem aqui no próximo drop, na coluna A completar. Abra este link no celular para usar em tela cheia.</p><button class="btn" data-a="closeModal">Fechar</button></div><div class="phone" id="phoneBox">${phoneHTML()}</div></div>`;
-    else{const html=k==='bform'?brechoForm():k==='sale'?saleModal():k==='newPeca'?newPecaModal():k==='drop'?dropModal():k==='desp'?despModal():'';h+=`<div class="scrim top" data-a="closeModal"></div><div class="modalw"><div class="modal ${k==='bform'?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`}}
+    else{const html=k==='bform'?brechoForm():k==='sale'?saleModal():k==='newPeca'?newPecaModal():k==='drop'?dropModal():k==='desp'?despModal():k==='mov'?movModal():'';h+=`<div class="scrim top" data-a="closeModal"></div><div class="modalw"><div class="modal ${k==='bform'?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`}}
   L.innerHTML=h;
   if(sc&&L.querySelector('.dr-b'))L.querySelector('.dr-b').scrollTop=sc;
   if(msc&&L.querySelector('.modal'))L.querySelector('.modal').scrollTop=msc;
@@ -1484,6 +1507,14 @@ const A={
   saleNew:()=>{ui.modal={kind:'sale',id:null,q:''};renderLayer();setTimeout(()=>$('saleQ')?.focus(),30)},
   salePick:el=>{ui.modal.id=el.dataset.id;renderLayer();setTimeout(()=>$('sv')?.select(),30)},
   newPeca:()=>{ui.np={nome:'',marca:'',cat:'',pago:null,brechoId:S.brechos[0]?.id||'',dropId:prepDrop()?.id||''};ui.modal={kind:'newPeca'};renderLayer();setTimeout(()=>$('np-nome')?.focus(),30)},
+  movNew:()=>{ui.mv={id:null,tipo:'in',valor:null,desc:'',data:TODAY};ui.mvDel=false;ui.modal={kind:'mov'};renderLayer();setTimeout(()=>$('mv-valor')?.focus(),30)},
+  movEdit:el=>{const m=S.movs.find(x=>x.id===el.dataset.id);if(!m)return;ui.mv={id:m.id,tipo:m.v>=0?'in':'out',valor:Math.abs(m.v),desc:m.desc||'',data:m.data};ui.mvDel=false;ui.modal={kind:'mov'};renderLayer()},
+  mvTipo:el=>{keepMv();ui.mv.tipo=el.dataset.v;renderLayer(true)},
+  movSave:()=>{keepMv();const f=ui.mv;if(!f.valor||f.valor<=0){toast('Digite o valor');$('mv-valor').focus();return}
+    const rec={id:f.id||uid('m'),v:(f.tipo==='in'?1:-1)*f.valor,desc:(f.desc||'').trim(),data:f.data||TODAY};
+    const i=S.movs.findIndex(x=>x.id===rec.id);if(i>=0)S.movs[i]=rec;else S.movs.push(rec);ui.modal=null;refresh();toast(`${rec.v>0?'Colocado':'Retirado'} ${brl(Math.abs(rec.v))}. Caixa agora: ${brl(caixa())}`)},
+  movDelAsk:()=>{ui.mvDel=true;renderLayer(true)},movDelNo:()=>{ui.mvDel=false;renderLayer(true)},
+  movDelOk:()=>{S.movs=S.movs.filter(x=>x.id!==ui.mv.id);ui.modal=null;refresh();toast('Movimentação excluída')},
   despNew:el=>{const pid=el?.dataset?.peca||null,did=el?.dataset?.drop||null;const def=nearDrop(addDays(TODAY,-1))||liveDrop()||prepDrop();
     ui.dsp={id:null,cat:pid?'Costura e ajustes':'Embalagem',desc:'',valor:null,data:TODAY,tipo:pid?'peca':'drop',dropId:did||def?.id||null,pecaId:pid};if(!pid&&!did&&!def)ui.dsp.tipo='geral';ui.dspDel=false;ui.modal={kind:'desp'};renderLayer();setTimeout(()=>$('ds-desc')?.focus(),30)},
   despEdit:el=>{const d=S.despesas.find(x=>x.id===el.dataset.id);if(!d)return;ui.dsp={...d,tipo:d.pecaId?'peca':d.dropId?'drop':'geral'};ui.dspDel=false;ui.modal={kind:'desp'};renderLayer()},
@@ -1518,6 +1549,10 @@ const A={
   confOk:()=>{S.settings.confirmed=true;renderDesk();toast('Valores confirmados')},
   theme:()=>{const n=curTheme()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('flopes-theme',n)}catch(e){}render()},
   /* celular */
+  mMov:()=>{ui.m.screen='mov';ui.m.mv={tipo:'in'};renderPhone();setTimeout(()=>$('mm-valor')?.focus(),30)},
+  mMvTipo:el=>{ui.m.mv.valor=$('mm-valor').value;ui.m.mv.desc=$('mm-desc').value;ui.m.mv.tipo=el.dataset.v;renderPhone(true)},
+  mMvSave:()=>{const v=numIn($('mm-valor').value);if(!v){toast('Digite o valor');$('mm-valor').focus();return}
+    S.movs.push({id:uid('m'),v:(ui.m.mv.tipo==='in'?1:-1)*v,desc:$('mm-desc').value.trim(),data:TODAY});ui.m.screen='home';ui.m.mv=null;renderPhone();if(!isPhone())renderDesk();flushSoon();toast(`Caixa agora: ${brl(caixa())}`)},
   mGasto:()=>{ui.m.gs={cat:'Embalagem',valor:'',desc:''};ui.m.screen='gasto';renderPhone();setTimeout(()=>$('mg-valor')?.focus(),30)},
   mGcat:el=>{ui.m.gs.valor=$('mg-valor').value;ui.m.gs.desc=$('mg-desc').value;ui.m.gs.cat=el.dataset.v;renderPhone(true)},
   mGsave:()=>{const v=numIn($('mg-valor').value);if(!v){toast('Digite quanto custou');$('mg-valor').focus();return}
@@ -1572,6 +1607,7 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('input',e=>{
   const t=e.target;
+  if(t.id==='mv-valor'&&ui.mv){const v=numIn(t.value)||0,d=ui.mv.id?S.movs.find(x=>x.id===ui.mv.id):null;const el=$('mv-after');if(el)el.textContent=brl(caixa()-(d?d.v:0)+(ui.mv.tipo==='in'?1:-1)*v)}
   if(t.id==='bq'){ui.bq=t.value;const pos=t.selectionStart;renderDesk();const n=$('bq');n.focus();n.setSelectionRange(pos,pos)}
   if(t.id==='pq'){ui.pq=t.value;const pos=t.selectionStart;renderDesk();const n=$('pq');n.focus();n.setSelectionRange(pos,pos)}
   if(t.id==='gq'){ui.gq=t.value;renderG()}
@@ -1633,7 +1669,7 @@ const SB_URL='https://hjsqpqystzfiagcoopsz.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqc3FwcXlzdHpmaWFnY29vcHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMDMwNTUsImV4cCI6MjEwODc3OTA1NX0.0XAroRg5Mn-TOnVsCn6_6BVvfpxVWhJIGoW1xx4xhSo';
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'flopes-auth'}}):null;
 const SYNC={mode:'loading',why:'',saved:{},pend:{},state:'ok',timer:null,retry:null,busy:false,again:false,deferred:false,hasSettings:false,rt:0,user:null,chan:null,upBusy:false,errShown:false};
-const COLS=['brechos','garimpos','drops','pecas','despesas'];
+const COLS=['brechos','garimpos','drops','pecas','despesas','movs'];
 const LS_CACHE='flopes-cache-v1',LS_PEND='flopes-pend-v1';
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}
@@ -1644,7 +1680,7 @@ function syncPill(){const n=Object.keys(SYNC.pend).length;
   const t=SYNC.state==='saving'?'Salvando…':SYNC.state==='offline'?`Sem internet${n?` · ${n} no aparelho`:''}`:SYNC.state==='err'?'Tentando salvar…':'Salvo';
   return `<span class="sample" id="syncPill"><i class="${SYNC.state==='offline'?'saving':SYNC.state}"></i>${t}</span>`}
 function setSave(st){SYNC.state=st;const el=$('syncPill');if(el)el.outerHTML=syncPill()}
-function saveCache(){lsSet(LS_CACHE,{settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas,despesas:S.despesas,saved:SYNC.saved,hasSettings:SYNC.hasSettings})}
+function saveCache(){lsSet(LS_CACHE,{settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas,despesas:S.despesas,movs:S.movs,saved:SYNC.saved,hasSettings:SYNC.hasSettings})}
 function flushSoon(){if(SYNC.mode!=='live')return;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(flush,350)}
 function diffToPend(){
   const seen=new Set();
@@ -1721,7 +1757,7 @@ document.addEventListener('submit',async e=>{if(e.target.id!=='loginForm')return
     SYNC.mode='loading';render();boot();
   }catch(x){err.textContent='Não consegui conectar. Tente de novo.';btn.disabled=false;btn.textContent='Entrar'}});
 A.tip=tipOpen;
-A.backup=()=>{const data={app:'Flopes',exportadoEm:new Date().toISOString(),settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas,despesas:S.despesas};
+A.backup=()=>{const data={app:'Flopes',exportadoEm:new Date().toISOString(),settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas,despesas:S.despesas,movs:S.movs};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`flopes-backup-${TODAY}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Backup baixado')};
 A.logout=async()=>{if(Object.keys(SYNC.pend).length){toast('Ainda há alterações não enviadas. Conecte-se à internet antes de sair.');return}
   try{await sb.auth.signOut()}catch(e){}try{localStorage.removeItem(LS_CACHE);localStorage.removeItem(LS_PEND)}catch(e){}location.reload()};
