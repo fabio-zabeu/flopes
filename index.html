@@ -446,6 +446,14 @@ canvas.sp-cat.on{opacity:1;transform:none}
 .m-gest .m-gest-ic{width:40px;height:40px;border-radius:12px;background:var(--fill);display:flex;align-items:center;justify-content:center;flex:none}
 .m-gest .m-gest-ic svg{width:20px;height:20px;color:var(--fg)}
 .m-gest b{font-size:15px}
+.cx-conta{border:1px solid var(--line);border-radius:12px;padding:4px 14px}
+.cx-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.cx-row:first-child{border-top:0}
+.cx-row span{min-width:0}
+.cx-row small{display:block;color:var(--muted);font-size:12px}
+.cx-row b{white-space:nowrap;font-weight:600}
+.cx-tot{border-top:1.5px solid var(--fg);font-size:15px}
+.cx-tot b{font-size:16px}
 .kact{display:inline-flex;align-items:center;gap:6px;margin-top:10px;align-self:flex-start;height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:600;background:rgba(127,127,127,.22);color:inherit;border:0;cursor:pointer}
 .kact svg{width:13px;height:13px}
 .kact:hover{background:rgba(127,127,127,.32)}
@@ -794,6 +802,7 @@ const I={
  ext:'<path d="M14 5h5v5M19 5l-8 8M17 14v5H5V7h5"/>',phone:'<rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/>',
  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',alert:'<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/>',
  trash:'<path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13"/>',
+ edit:'<path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M13.5 7.5l3 3"/>',
  moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>'
 };
@@ -815,7 +824,7 @@ const isPhone=()=>innerWidth<760&&!ui.forceDesk;
 /* ================= componentes ================= */
 const head=(title,sub,actions='',back='')=>`<div class="ph-row"><div>${back}<h1>${title}</h1>${sub?`<p>${sub}</p>`:''}</div>${actions?`<div class="row">${actions}</div>`:''}</div>`;
 const kpi=(k,v,s,o={})=>`<div class="kpi ${o.hl?'hl':''}"><div class="k">${o.icon?ic(o.icon):''}${k}</div><div class="v ${o.cls||''}">${v}</div>${s?`<div class="s">${s}</div>`:''}${o.act||''}</div>`;
-const cxBtn=()=>`<button class="kact" data-a="movNew">${ic('plus',2)}Colocar ou tirar dinheiro</button>`;
+const cxBtn=()=>`<button class="kact" data-a="movNew">${ic('edit',2)}Editar valor</button>`;
 const pc=p=>`<div class="pc">${photo(p,'th')}<div><b>${esc(p.nome||'Sem nome')}</b><span class="mono">${p.code}${p.marca?' · '+esc(p.marca):''}</span></div></div>`;
 const marcasConhecidas=()=>[...new Set([...MARCAS,...S.pecas.map(p=>p.marca).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'pt-BR'));
 const marcaList=()=>`<datalist id="marcas">${marcasConhecidas().map(m=>`<option value="${esc(m)}"></option>`).join('')}</datalist>`;
@@ -1029,9 +1038,26 @@ function despModal(){
   ${d?`<div style="border-top:1px solid var(--line);padding-top:14px">${ui.dspDel?`<div class="row"><span>Excluir este gasto?</span><button class="btn sm danger" data-a="despDelOk">Excluir</button><button class="btn sm ghost" data-a="despDelNo">Cancelar</button></div>`:`<button class="btn sm ghost danger" data-a="despDelAsk">${ic('trash')}Excluir gasto</button>`}</div>`:''}
   </div><div class="m-f"><button class="btn ghost" data-a="closeModal">Cancelar</button><button class="btn pri" data-a="despSave">Salvar gasto</button></div>`;
 }
+function caixaResumo(excl){
+  const v=S.pecas.filter(p=>p.venda);const movs=S.movs.filter(m=>m.id!==excl);
+  const r={inicial:S.settings.inicial,vendas:sum(v,reposicao),nv:v.length,pecas:sum(S.garimpos,gPago),gas:sum(S.garimpos,gGas),ng:S.garimpos.length,
+    mat:sum(S.despesas,d=>d.valor||0),nd:S.despesas.length,mIn:sum(movs.filter(m=>m.v>0),m=>m.v),mOut:-sum(movs.filter(m=>m.v<0),m=>m.v),nm:movs.length};
+  r.total=r.inicial+r.vendas-r.pecas-r.gas-r.mat+r.mIn-r.mOut;return r}
+function caixaConta(r){const row=(l,v,sign,sub)=>`<div class="cx-row"><span>${l}${sub?`<small>${sub}</small>`:''}</span><b class="num ${sign==='+'?'pos':sign==='−'?'':''}">${sign} ${brl(v)}</b></div>`;
+  return `<div class="cx-conta">${row('Capital inicial',r.inicial,'','definido em Ajustes')}
+   ${row('Separado das vendas',r.vendas,'+',`${r.nv} venda${r.nv===1?'':'s'} · custo da peça + ${S.settings.reinvest}% do lucro`)}
+   ${row('Peças compradas',r.pecas,'−',`${r.ng} garimpo${r.ng===1?'':'s'}`)}
+   ${row('Gasolina',r.gas,'−','dos garimpos')}
+   ${r.mat?row('Materiais e serviços',r.mat,'−',`${r.nd} gasto${r.nd===1?'':'s'}`):''}
+   ${r.mIn?row('Dinheiro colocado',r.mIn,'+','ajustes manuais'):''}
+   ${r.mOut?row('Dinheiro retirado',r.mOut,'−','ajustes manuais'):''}
+   <div class="cx-row cx-tot"><span>Caixa agora</span><b class="num">${brl(r.total)}</b></div></div>`}
 function movModal(){const f=ui.mv,d=f.id?S.movs.find(x=>x.id===f.id):null;
   const after=caixa()-(d?d.v:0)+(f.tipo==='in'?1:-1)*(f.valor||0);
-  return `<div class="m-h"><b>${d?'Editar movimentação':'Ajustar o caixa'}</b><button class="x" data-a="closeModal" aria-label="Fechar">${ic('x')}</button></div><div class="m-b">
+  const rs=caixaResumo(f.id);
+  return `<div class="m-h"><b>${d?'Editar ajuste do caixa':'Caixa para o próximo garimpo'}</b><button class="x" data-a="closeModal" aria-label="Fechar">${ic('x')}</button></div><div class="m-b">
+  ${d?'':`<div class="fld"><span class="lbl">Como chegamos a ${brl(rs.total)}</span>${caixaConta(rs)}</div>
+  <div class="fld" style="margin-top:4px"><span class="lbl" style="font-weight:600;color:var(--fg)">Ajustar o valor</span></div>`}
   <div class="seg" style="display:flex">${[['in','Colocar dinheiro'],['out','Tirar dinheiro']].map(([k,l])=>`<button style="flex:1;height:36px" class="${f.tipo===k?'on':''}" data-a="mvTipo" data-v="${k}">${l}</button>`).join('')}</div>
   <div class="fld"><label for="mv-valor">Valor</label><div class="affix"><span>R$</span><input class="input num" id="mv-valor" inputmode="decimal" value="${f.valor!=null?String(f.valor).replace('.',','):''}" placeholder="0,00" autocomplete="off"></div></div>
   <div class="fld"><label for="mv-desc">Motivo <span class="faint">(opcional)</span></label><input class="input" id="mv-desc" value="${esc(f.desc||'')}" placeholder="${f.tipo==='in'?'Ex.: dinheiro extra para o drop de Natal':'Ex.: usei para outra coisa'}" autocomplete="off"></div>
@@ -1044,7 +1070,7 @@ function vCaixa(){
   const L=ledger(),tot=caixa(),ld=lastDropDate();
   const ciclo=S.pecas.filter(p=>p.venda&&p.venda.data>=ld);
   const ent=sum(L.filter(r=>r.v>0),r=>r.v),sai=-sum(L.filter(r=>r.v<0),r=>r.v);
-  return head('Caixa de reposição','O dinheiro separado para comprar peças e materiais. Entra a cada venda, sai a cada garimpo e a cada gasto.',`<button class="btn pri" data-a="movNew">${ic('plus',2)}Colocar ou tirar dinheiro</button>`)+`
+  return head('Caixa de reposição','O dinheiro separado para comprar peças e materiais. Entra a cada venda, sai a cada garimpo e a cada gasto.',`<button class="btn pri" data-a="movNew">${ic('edit',2)}Editar valor do caixa</button>`)+`
   <div class="kpis">${kpi('Saldo disponível',brl0(tot),'orçamento do próximo garimpo',{hl:1,icon:'caixa',act:cxBtn()})}${kpi('Separar desta semana',brl0(sum(ciclo,reposicao)),`${ciclo.length} vendas desde ${fDay(ld)}`)}${kpi('Total que entrou',brl0(ent),'reposição das vendas')}${kpi('Saídas',brl0(sai),`garimpos e ${brl0(sum(S.despesas,x=>x.valor||0))} em materiais`)}</div>
   <div class="callout" style="margin-bottom:22px">${ic('info')}<p>A cada venda vai para o caixa o <b>custo real da peça</b> (o que você pagou + a gasolina) e mais <b>${S.settings.reinvest}% do lucro</b>. O custo mantém o estoque do mesmo tamanho; a parte do lucro faz cada drop crescer um pouco. Os outros ${100-S.settings.reinvest}% do lucro são seus. <a class="lnk" href="#ajustes">Mudar a porcentagem</a></p></div>
   <div class="sec-h"><h2>Movimentações</h2><span class="muted">mais recentes primeiro</span></div>
@@ -1272,7 +1298,7 @@ function phoneHTML(){
     const bd=mBudget();const recent=S.garimpos.slice().sort((a,b)=>b.data.localeCompare(a.data)).slice(0,4);
     return `<div class="m"><div class="m-body" style="padding-top:${topPad}">
       <div class="m-hero row" style="justify-content:space-between;align-items:flex-start"><div><span class="wordmark">Flopes</span><p>Cadastro de garimpo</p></div>${themeBtn()}</div>
-      <div class="budget"><span class="k">Você pode gastar hoje</span><span class="v">${brl0(bd.base)}</span><span class="s">saldo do caixa de reposição, já com a gasolina</span>${!ui.phonePreview?`<button class="kact" data-a="mMov">${ic('plus',2)}Colocar ou tirar dinheiro</button>`:''}</div>
+      <div class="budget"><span class="k">Você pode gastar hoje</span><span class="v">${brl0(bd.base)}</span><span class="s">saldo do caixa de reposição, já com a gasolina</span>${!ui.phonePreview?`<button class="kact" data-a="mMov">${ic('edit',2)}Editar valor</button>`:''}</div>
       ${g?`<button class="btn pri lg full" data-a="mGo" data-v="cap">Continuar garimpo · ${g.items.length} peças</button><button class="btn full" data-a="mCancel">Descartar garimpo em andamento</button>`:`<button class="btn pri lg full" data-a="mStart">${ic('plus',2.2)}Começar garimpo</button>`}<button class="btn full" data-a="mGasto">${ic('despesas')}Registrar gasto com material</button>
       ${!ui.phonePreview?'<div class="m-sep" role="separator"></div>':''}
       ${!ui.phonePreview?(()=>{const inc=S.pecas.filter(isInc).length,res=S.pecas.filter(p=>p.status==='reservada').length;const hint=[inc&&`${inc} para completar`,res&&`${res} reservada${res>1?'s':''}`].filter(Boolean).join(' · ');
@@ -1285,8 +1311,9 @@ function phoneHTML(){
     </div></div>`;
   }
   if(m.screen==='mov'){const f=m.mv;
-    return `<div class="m"><div class="m-top"><button class="x" data-a="mGo" data-v="home" aria-label="Voltar">${ic('back')}</button><div class="t">Ajustar o caixa<small>hoje: ${brl0(caixa())}</small></div><span style="width:38px"></span></div>
-    <div class="m-body"><div class="seg" style="display:flex">${[['in','Colocar dinheiro'],['out','Tirar dinheiro']].map(([k,l])=>`<button style="flex:1;height:42px" class="${f.tipo===k?'on':''}" data-a="mMvTipo" data-v="${k}">${l}</button>`).join('')}</div>
+    return `<div class="m"><div class="m-top"><button class="x" data-a="mGo" data-v="home" aria-label="Voltar">${ic('back')}</button><div class="t">Caixa do próximo garimpo<small>hoje: ${brl0(caixa())}</small></div><span style="width:38px"></span></div>
+    <div class="m-body"><div class="fld"><span class="lbl">Como chegamos a ${brl(caixa())}</span>${caixaConta(caixaResumo())}</div>
+    <div class="fld" style="margin-top:4px"><span class="lbl" style="font-weight:600;color:var(--fg)">Ajustar o valor</span></div><div class="seg" style="display:flex">${[['in','Colocar dinheiro'],['out','Tirar dinheiro']].map(([k,l])=>`<button style="flex:1;height:42px" class="${f.tipo===k?'on':''}" data-a="mMvTipo" data-v="${k}">${l}</button>`).join('')}</div>
     <div class="fld"><label for="mm-valor">Valor</label><div class="bigval"><span>R$</span><input id="mm-valor" inputmode="decimal" placeholder="0" value="${esc(f.valor||'')}" autocomplete="off"></div></div>
     <div class="fld"><label for="mm-desc">Motivo <span class="faint">(opcional)</span></label><input class="input" id="mm-desc" value="${esc(f.desc||'')}" placeholder="Ex.: dinheiro extra do mês" autocomplete="off"></div>
     <p class="muted" style="margin:0;font-size:12px">${f.tipo==='in'?'Aumenta o orçamento do próximo garimpo. Não conta como lucro.':'Diminui o orçamento do próximo garimpo. Não conta como despesa.'}</p></div>
@@ -1507,7 +1534,7 @@ const A={
   saleNew:()=>{ui.modal={kind:'sale',id:null,q:''};renderLayer();setTimeout(()=>$('saleQ')?.focus(),30)},
   salePick:el=>{ui.modal.id=el.dataset.id;renderLayer();setTimeout(()=>$('sv')?.select(),30)},
   newPeca:()=>{ui.np={nome:'',marca:'',cat:'',pago:null,brechoId:S.brechos[0]?.id||'',dropId:prepDrop()?.id||''};ui.modal={kind:'newPeca'};renderLayer();setTimeout(()=>$('np-nome')?.focus(),30)},
-  movNew:()=>{ui.mv={id:null,tipo:'in',valor:null,desc:'',data:TODAY};ui.mvDel=false;ui.modal={kind:'mov'};renderLayer();setTimeout(()=>$('mv-valor')?.focus(),30)},
+  movNew:()=>{ui.mv={id:null,tipo:'in',valor:null,desc:'',data:TODAY};ui.mvDel=false;ui.modal={kind:'mov'};renderLayer()},
   movEdit:el=>{const m=S.movs.find(x=>x.id===el.dataset.id);if(!m)return;ui.mv={id:m.id,tipo:m.v>=0?'in':'out',valor:Math.abs(m.v),desc:m.desc||'',data:m.data};ui.mvDel=false;ui.modal={kind:'mov'};renderLayer()},
   mvTipo:el=>{keepMv();ui.mv.tipo=el.dataset.v;renderLayer(true)},
   movSave:()=>{keepMv();const f=ui.mv;if(!f.valor||f.valor<=0){toast('Digite o valor');$('mv-valor').focus();return}
@@ -1549,7 +1576,7 @@ const A={
   confOk:()=>{S.settings.confirmed=true;renderDesk();toast('Valores confirmados')},
   theme:()=>{const n=curTheme()==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('flopes-theme',n)}catch(e){}render()},
   /* celular */
-  mMov:()=>{ui.m.screen='mov';ui.m.mv={tipo:'in'};renderPhone();setTimeout(()=>$('mm-valor')?.focus(),30)},
+  mMov:()=>{ui.m.screen='mov';ui.m.mv={tipo:'in'};renderPhone()},
   mMvTipo:el=>{ui.m.mv.valor=$('mm-valor').value;ui.m.mv.desc=$('mm-desc').value;ui.m.mv.tipo=el.dataset.v;renderPhone(true)},
   mMvSave:()=>{const v=numIn($('mm-valor').value);if(!v){toast('Digite o valor');$('mm-valor').focus();return}
     S.movs.push({id:uid('m'),v:(ui.m.mv.tipo==='in'?1:-1)*v,desc:$('mm-desc').value.trim(),data:TODAY});ui.m.screen='home';ui.m.mv=null;renderPhone();if(!isPhone())renderDesk();flushSoon();toast(`Caixa agora: ${brl(caixa())}`)},
