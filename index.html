@@ -446,6 +446,13 @@ canvas.sp-cat.on{opacity:1;transform:none}
 .m-gest .m-gest-ic{width:40px;height:40px;border-radius:12px;background:var(--fill);display:flex;align-items:center;justify-content:center;flex:none}
 .m-gest .m-gest-ic svg{width:20px;height:20px;color:var(--fg)}
 .m-gest b{font-size:15px}
+.tipb{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid currentColor;font:600 10px/1 var(--serif);font-style:italic;opacity:.55;margin-left:6px;vertical-align:1px;cursor:pointer;flex:none;padding:0;color:inherit;background:none;text-transform:none;letter-spacing:0}
+.tipb:hover,.tipb:focus-visible{opacity:1}
+.kpi .k .tipb{margin-left:0}
+.t th .tipb{margin-left:4px}
+.tip-pop{position:fixed;z-index:120;background:var(--ink);color:var(--ink-fg);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);font-size:13px;line-height:1.45;animation:fade .12s}
+.tip-pop b{display:block;font-size:13px;margin-bottom:3px}
+.tip-pop p{margin:0;opacity:.88}
 /* ---------- app de celular ---------- */
 .m{height:100%;display:flex;flex-direction:column;background:var(--bg);position:relative}
 .m-top{display:flex;align-items:center;gap:8px;padding:14px max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px));min-height:56px;border-bottom:1px solid var(--line)}
@@ -1322,6 +1329,60 @@ function phoneHTML(){
 
 /* ================= render ================= */
 function keepDsp(){const f=ui.dsp;if(!f)return;if($('ds-desc'))f.desc=$('ds-desc').value;if($('ds-valor'))f.valor=numIn($('ds-valor').value);if($('ds-data'))f.data=$('ds-data').value||TODAY;if($('ds-drop'))f.dropId=$('ds-drop').value||null;if($('ds-peca'))f.pecaId=$('ds-peca').value||null}
+/* ===== explicações dos termos (botão ⓘ) ===== */
+const TIPS={
+ custoReal:['Custo real','Quanto a peça realmente te custou: o valor pago + a parte da gasolina do garimpo + gastos só dela, como costureira ou lavanderia.'],
+ gasolina:['Gasolina rateada','A gasolina do garimpo dividida entre as peças compradas naquele dia. Peça mais cara leva uma parte maior.'],
+ lucro:['Lucro','O que sobra da venda depois de tirar o custo real da peça. Vendeu por R$ 80 e custou R$ 30: lucro de R$ 50.'],
+ lucroPrevisto:['Lucro previsto','Quanto você vai lucrar se vender pelo preço que está marcado.'],
+ lucroLiquido:['Lucro líquido','O lucro das vendas menos os gastos com materiais (sacolas, fitas, etiquetas…). É o que realmente sobrou no período.'],
+ margem:['Margem','Quanto do valor da venda é lucro. Vendeu por R$ 100 e lucrou R$ 60: margem de 60%. Quanto maior, melhor.'],
+ roi:['ROI (retorno)','Quanto cada real gasto voltou em lucro. ROI de 150%: cada R$ 1 investido (peça + gasolina) trouxe R$ 1,50 de lucro. Serve para comparar brechós e drops.'],
+ ticket:['Ticket médio','O valor médio de cada venda: o total vendido dividido pelo número de peças vendidas.'],
+ reposicao:['Separar para reposição','A parte de cada venda que volta para o caixa para comprar peças novas: o custo real da peça + a porcentagem do lucro definida em Ajustes.'],
+ livre:['Livre para você','A parte do lucro que é sua para usar como quiser. É o lucro menos o que volta para o caixa de reposição.'],
+ caixa:['Caixa de reposição','O dinheiro guardado só para comprar peças e materiais. Aumenta a cada venda e diminui a cada garimpo ou gasto.'],
+ gastar:['Quanto pode gastar','O saldo do caixa de reposição menos o que você já gastou neste garimpo, contando a gasolina estimada.'],
+ taxaVenda:['Taxa de venda','Das peças que já foram lançadas, quantas % foram vendidas.'],
+ dias:['Dias até vender','Quantos dias, em média, uma peça leva desde o drop até ser vendida. Quanto menor, mais rápido o estoque gira.'],
+ investido:['Investido','Tudo o que saiu do bolso para montar o drop: peças, gasolina e materiais.'],
+ receita:['Receita','A soma dos valores das peças vendidas, antes de tirar qualquer custo.'],
+ precoTotal:['Preço total','Quanto entra se todas as peças forem vendidas pelo preço marcado.'],
+ embalagem:['Embalagem por venda','Quanto você gasta em embalagem, em média, para cada peça vendida.'],
+ gasPeca:['Gasolina por peça','Tudo o que foi gasto com gasolina dividido pelo número de peças compradas.'],
+ markup:['Markup','Quantas vezes o custo real vira o preço sugerido. Markup 3: peça que custou R$ 20 é sugerida por R$ 60.'],
+ reinvest:['Parte do lucro para o caixa','Além do custo da peça, essa porcentagem do lucro de cada venda volta para o caixa. Ela faz o estoque crescer aos poucos.'],
+ despPeca:['Gastos em peças','Gastos ligados a uma peça (costureira, lavanderia). Eles entram no custo real dela.'],
+ despGeral:['Gastos gerais e dos drops','Materiais usados no drop ou no geral, como sacolas e fitas. Eles diminuem o lucro do drop ou do mês.'],
+ entrou:['Total que entrou','Tudo o que já foi separado das vendas para o caixa de reposição.'],
+ saidas:['Saídas','Tudo o que saiu do caixa: peças compradas, gasolina e materiais.'],
+ sugerido:['Preço sugerido','O custo real da peça multiplicado pelo markup de Ajustes, arredondado de 5 em 5.']
+};
+const TIP_MAP=[[/^(=\s*)?custo real$/i,'custoReal'],[/^\+?\s*gasolina (rateada|e gastos)$/i,'gasolina'],[/^lucro previsto$/i,'lucroPrevisto'],[/^lucro líquido/i,'lucroLiquido'],[/^(lucro|lucro gerado)$/i,'lucro'],
+ [/^margem( média)?$/i,'margem'],[/^roi$/i,'roi'],[/^(separar para reposição|separar desta semana|reposição)$/i,'reposicao'],[/^livre para você$/i,'livre'],
+ [/^(caixa para o próximo garimpo|caixa para o primeiro garimpo|caixa disponível|saldo disponível)$/i,'caixa'],[/^(você pode gastar hoje|ainda pode gastar)$/i,'gastar'],
+ [/^taxa de venda$/i,'taxaVenda'],[/^dias (até|p\/) vender$/i,'dias'],[/^investido$/i,'investido'],[/^receita$/i,'receita'],[/^preço total$/i,'precoTotal'],
+ [/^embalagem por venda$/i,'embalagem'],[/^gasolina por peça$/i,'gasPeca'],[/^markup/i,'markup'],[/^parte do lucro que volta/i,'reinvest'],
+ [/^em peças específicas$/i,'despPeca'],[/^gerais e dos drops$/i,'despGeral'],[/^total que entrou$/i,'entrou'],[/^saídas$/i,'saidas'],[/^preço de venda$/i,'sugerido']];
+function tipBtn(k){return `<button type="button" class="tipb" data-a="tip" data-k="${k}" aria-label="O que é ${esc(TIPS[k][0])}?">i</button>`}
+function addTips(root){
+  if(!root)return;
+  root.querySelectorAll('.kpi .k,.money2 .k,.fld>.lbl,.fld>label,.t th,.side-card .k,.budget .k').forEach(el=>{
+    if(el.dataset.tip||el.querySelector('.tipb'))return;
+    const txt=(el.childNodes.length?[...el.childNodes].filter(n=>n.nodeType===3||n.tagName==='B').map(n=>n.textContent).join(''):el.textContent).replace(/[:%]\s*\d.*$/,'').trim();
+    let k=null;for(const [re,key] of TIP_MAP)if(re.test(txt)){k=key;break}
+    if(!k&&el.closest('.kpi')&&/ticket médio/.test(el.closest('.kpi').querySelector('.s')?.textContent||''))k='ticket';
+    if(!k)return;el.dataset.tip=k;el.insertAdjacentHTML('beforeend',tipBtn(k));
+  });
+}
+function closeTip(){document.querySelectorAll('.tip-pop').forEach(x=>x.remove())}
+function tipOpen(el){const open=document.querySelector('.tip-pop');const same=open&&open.dataset.k===el.dataset.k&&open._btn===el;closeTip();if(same)return;
+  const [t,d]=TIPS[el.dataset.k]||['',''];const pop=document.createElement('div');pop.className='tip-pop';pop.dataset.k=el.dataset.k;pop._btn=el;pop.setAttribute('role','dialog');
+  pop.innerHTML=`<b>${esc(t)}</b><p>${esc(d)}</p>`;document.body.appendChild(pop);
+  const r=el.getBoundingClientRect(),W=document.documentElement.clientWidth,H=innerHeight,pw=Math.min(300,W-24);pop.style.width=pw+'px';
+  const ph=pop.offsetHeight;let x=Math.min(Math.max(12,r.left+r.width/2-pw/2),W-pw-12);let y=r.bottom+8;if(y+ph>H-12)y=Math.max(12,r.top-ph-8);
+  pop.style.left=x+'px';pop.style.top=y+'px'}
+addEventListener('scroll',closeTip,true);addEventListener('resize',closeTip);
 function renderDesk(){
   const r=curRoute();
   const v=r.startsWith('drop-')?vDrop(r.slice(5)):({painel:vPainel,drops:vDrops,pecas:vPecas,vendas:vVendas,caixa:vCaixa,despesas:vDespesas,brechos:vBrechos,relatorios:vRel,ajustes:vAjustes}[r]||vPainel)();
@@ -1335,6 +1396,7 @@ function renderDesk(){
     <nav class="mnav">${NAV.map(([k,l])=>`<a href="#${k}" class="${navOn===k?'on':''}">${l}</a>`).join('')}<a href="#painel" data-a="mBack">Cadastro</a></nav>
     <div class="content">${v}</div></div></div>`;
   if(ui.gq)renderG();
+  addTips($('root'));
 }
 function renderG(){
   const box=$('gres');if(!box)return;const q=ui.gq.trim().toLowerCase();if(!q){box.innerHTML='';return}
@@ -1353,10 +1415,11 @@ function renderLayer(keep){
   L.innerHTML=h;
   if(sc&&L.querySelector('.dr-b'))L.querySelector('.dr-b').scrollTop=sc;
   if(msc&&L.querySelector('.modal'))L.querySelector('.modal').scrollTop=msc;
+  addTips(L);
 }
 function renderPhone(keep){
   const host=isPhone()?$('root'):$('phoneBox');if(!host)return;
-  const b=host.querySelector('.m-body');const sc=keep&&b?b.scrollTop:0;host.innerHTML=phoneHTML();if(sc)host.querySelector('.m-body').scrollTop=sc;
+  const b=host.querySelector('.m-body');const sc=keep&&b?b.scrollTop:0;host.innerHTML=phoneHTML();if(sc)host.querySelector('.m-body').scrollTop=sc;addTips(host);
 }
 function render(){
   if(SYNC.mode==='loading'){$('layer').innerHTML='';$('root').innerHTML=`<div class="ob"><div class="boot"><span class="wordmark">Flopes</span><span>Carregando seus dados…</span></div></div>`;return}
@@ -1486,6 +1549,7 @@ const A={
 };
 
 document.addEventListener('click',e=>{
+  if(document.querySelector('.tip-pop')&&!e.target.closest('.tip-pop,.tipb'))closeTip();
   if(e.target.matches('input[data-sel],#selAll'))return;
   if(e.target.closest('[data-stop]'))return;
   const el=e.target.closest('[data-a]');
@@ -1495,6 +1559,7 @@ document.addEventListener('click',e=>{
 ['click','change','drop','keydown'].forEach(ev=>document.addEventListener(ev,()=>flushSoon()));
 document.addEventListener('focusout',()=>{if(SYNC.deferred)setTimeout(()=>{const a=document.activeElement;if(SYNC.deferred&&!(a&&a.matches('input,select,textarea'))){SYNC.deferred=false;render()}},60)});
 document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.querySelector('.tip-pop')){closeTip();return}
   if(e.key==='Escape'){if(ui.modal)A.closeModal();else if(ui.drawer)A.closeDrawer();else if(ui.gq){ui.gq='';$('gq').value='';renderG()}return}
   if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-a]:not(button):not(a):not(input):not(svg)')){e.preventDefault();A[e.target.dataset.a]?.(e.target,e);return}
   if((e.key==='Enter'||e.key===' ')&&e.target.matches('g[data-a]')){e.preventDefault();A[e.target.dataset.a]?.(e.target,e);return}
@@ -1655,6 +1720,7 @@ document.addEventListener('submit',async e=>{if(e.target.id!=='loginForm')return
     if(error){err.textContent=navigator.onLine?'E-mail ou senha incorretos.':'Sem internet. Conecte-se para entrar pela primeira vez.';btn.disabled=false;btn.textContent='Entrar';return}
     SYNC.mode='loading';render();boot();
   }catch(x){err.textContent='Não consegui conectar. Tente de novo.';btn.disabled=false;btn.textContent='Entrar'}});
+A.tip=tipOpen;
 A.backup=()=>{const data={app:'Flopes',exportadoEm:new Date().toISOString(),settings:S.settings,brechos:S.brechos,garimpos:S.garimpos,drops:S.drops,pecas:S.pecas,despesas:S.despesas};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`flopes-backup-${TODAY}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Backup baixado')};
 A.logout=async()=>{if(Object.keys(SYNC.pend).length){toast('Ainda há alterações não enviadas. Conecte-se à internet antes de sair.');return}
