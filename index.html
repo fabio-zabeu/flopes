@@ -452,6 +452,11 @@ canvas.sp-cat.on{opacity:1;transform:none}
 .cx-row span{min-width:0}
 .cx-row small{display:block;color:var(--muted);font-size:12px}
 .cx-row b{white-space:nowrap;font-weight:600}
+.cx-rv{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 9px;padding:7px 8px 7px 12px;background:var(--fill);border-radius:9px;font-size:13px;color:var(--muted)}
+.stp{display:flex;align-items:center;gap:2px}
+.stp b{min-width:46px;text-align:center;color:var(--fg);font-size:14px}
+.stp button{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:17px;line-height:1;cursor:pointer}
+.stp button:disabled{opacity:.35;cursor:default}
 .cx-tot{border-top:1.5px solid var(--fg);font-size:15px}
 .cx-tot b{font-size:16px}
 .kact{display:inline-flex;align-items:center;gap:6px;margin-top:10px;align-self:flex-start;height:30px;padding:0 12px;border-radius:15px;font-size:12px;font-weight:600;background:rgba(127,127,127,.22);color:inherit;border:0;cursor:pointer}
@@ -1043,9 +1048,10 @@ function caixaResumo(excl){
   const r={inicial:S.settings.inicial,vendas:sum(v,reposicao),nv:v.length,pecas:sum(S.garimpos,gPago),gas:sum(S.garimpos,gGas),ng:S.garimpos.length,
     mat:sum(S.despesas,d=>d.valor||0),nd:S.despesas.length,mIn:sum(movs.filter(m=>m.v>0),m=>m.v),mOut:-sum(movs.filter(m=>m.v<0),m=>m.v),nm:movs.length};
   r.total=r.inicial+r.vendas-r.pecas-r.gas-r.mat+r.mIn-r.mOut;return r}
-function caixaConta(r){const row=(l,v,sign,sub)=>`<div class="cx-row"><span>${l}${sub?`<small>${sub}</small>`:''}</span><b class="num ${sign==='+'?'pos':sign==='−'?'':''}">${sign} ${brl(v)}</b></div>`;
+function rvCtl(a){const v=S.settings.reinvest;return `<div class="cx-rv"><span>Parte do lucro reinvestida</span><div class="stp"><button data-a="${a}" data-d="-5" aria-label="Diminuir porcentagem" ${v<=0?'disabled':''}>−</button><b class="num">${v}%</b><button data-a="${a}" data-d="5" aria-label="Aumentar porcentagem" ${v>=100?'disabled':''}>+</button></div></div>`}
+function caixaConta(r,rv){const row=(l,v,sign,sub)=>`<div class="cx-row"><span>${l}${sub?`<small>${sub}</small>`:''}</span><b class="num ${sign==='+'?'pos':sign==='−'?'':''}">${sign} ${brl(v)}</b></div>`;
   return `<div class="cx-conta">${row('Capital inicial',r.inicial,'','definido em Ajustes')}
-   ${row('Separado das vendas',r.vendas,'+',`${r.nv} venda${r.nv===1?'':'s'} · custo da peça + ${S.settings.reinvest}% do lucro`)}
+   ${row('Separado das vendas',r.vendas,'+',`${r.nv} venda${r.nv===1?'':'s'} · custo da peça + ${S.settings.reinvest}% do lucro`)}${rv?rvCtl(rv):''}
    ${row('Peças compradas',r.pecas,'−',`${r.ng} garimpo${r.ng===1?'':'s'}`)}
    ${row('Gasolina',r.gas,'−','dos garimpos')}
    ${r.mat?row('Materiais e serviços',r.mat,'−',`${r.nd} gasto${r.nd===1?'':'s'}`):''}
@@ -1056,7 +1062,7 @@ function movModal(){const f=ui.mv,d=f.id?S.movs.find(x=>x.id===f.id):null;
   const after=caixa()-(d?d.v:0)+(f.tipo==='in'?1:-1)*(f.valor||0);
   const rs=caixaResumo(f.id);
   return `<div class="m-h"><b>${d?'Editar ajuste do caixa':'Caixa para o próximo garimpo'}</b><button class="x" data-a="closeModal" aria-label="Fechar">${ic('x')}</button></div><div class="m-b">
-  ${d?'':`<div class="fld"><span class="lbl">Como chegamos a ${brl(rs.total)}</span>${caixaConta(rs)}</div>
+  ${d?'':`<div class="fld"><span class="lbl">Como chegamos a ${brl(rs.total)}</span>${caixaConta(rs,'rvStep')}</div>
   <div class="fld" style="margin-top:4px"><span class="lbl" style="font-weight:600;color:var(--fg)">Ajustar o valor</span></div>`}
   <div class="seg" style="display:flex">${[['in','Colocar dinheiro'],['out','Tirar dinheiro']].map(([k,l])=>`<button style="flex:1;height:36px" class="${f.tipo===k?'on':''}" data-a="mvTipo" data-v="${k}">${l}</button>`).join('')}</div>
   <div class="fld"><label for="mv-valor">Valor</label><div class="affix"><span>R$</span><input class="input num" id="mv-valor" inputmode="decimal" value="${f.valor!=null?String(f.valor).replace('.',','):''}" placeholder="0,00" autocomplete="off"></div></div>
@@ -1135,7 +1141,7 @@ function vAjustes(){
   <div class="stack" style="max-width:760px;gap:18px">
   <div class="card card-p stack"><h2>Reposição do estoque</h2>
     <div class="callout">${ic('info')}<p><b>Sugestão: 30% do lucro.</b> Com drop toda semana, o custo de cada peça vendida já repõe o estoque no mesmo tamanho. Os 30% do lucro fazem cada drop crescer um pouco sem pesar na sua renda. Quando o drop chegar no tamanho que você consegue fotografar e postar em uma semana, baixe para 15–20%.</p></div>
-    <div class="fld"><label for="s-reinvest">Parte do lucro que volta para o caixa: <b class="num" style="color:var(--fg)">${s.reinvest}%</b></label><input id="s-reinvest" data-s="reinvest" type="range" min="0" max="60" step="5" value="${s.reinvest}" style="accent-color:var(--accent)"></div>
+    <div class="fld"><label for="s-reinvest">Parte do lucro que volta para o caixa: <b class="num" style="color:var(--fg)">${s.reinvest}%</b></label><input id="s-reinvest" data-s="reinvest" type="range" min="0" max="100" step="5" value="${s.reinvest}" style="accent-color:var(--accent)"></div>
     <p class="muted" style="margin:0">Com o lucro médio dos últimos drops (${brl0(l4)} por drop), ${s.reinvest}% são <b style="color:var(--fg)">${brl0(extra)}</b> a mais por garimpo, cerca de ${Math.round(extra/Math.max(1,cm))} peças a mais por drop no seu preço médio de compra (${brl0(cm)}).</p>
     <div class="g2">${f('inicial','Capital inicial do caixa',s.inicial,'R$','1')}<div class="fld"><label for="s-dropDay">Dia do drop</label><select class="input" id="s-dropDay" data-s="dropDay">${DOW.map((d,i)=>`<option value="${i}" ${+s.dropDay===i?'selected':''}>${d}</option>`).join('')}</select><span class="hint">Vale para os próximos drops.</span></div></div>
   </div>
@@ -1312,7 +1318,7 @@ function phoneHTML(){
   }
   if(m.screen==='mov'){const f=m.mv;
     return `<div class="m"><div class="m-top"><button class="x" data-a="mGo" data-v="home" aria-label="Voltar">${ic('back')}</button><div class="t">Caixa do próximo garimpo<small>hoje: ${brl0(caixa())}</small></div><span style="width:38px"></span></div>
-    <div class="m-body"><div class="fld"><span class="lbl">Como chegamos a ${brl(caixa())}</span>${caixaConta(caixaResumo())}</div>
+    <div class="m-body"><div class="fld"><span class="lbl">Como chegamos a ${brl(caixa())}</span>${caixaConta(caixaResumo(),'mRvStep')}</div>
     <div class="fld" style="margin-top:4px"><span class="lbl" style="font-weight:600;color:var(--fg)">Ajustar o valor</span></div><div class="seg" style="display:flex">${[['in','Colocar dinheiro'],['out','Tirar dinheiro']].map(([k,l])=>`<button style="flex:1;height:42px" class="${f.tipo===k?'on':''}" data-a="mMvTipo" data-v="${k}">${l}</button>`).join('')}</div>
     <div class="fld"><label for="mm-valor">Valor</label><div class="bigval"><span>R$</span><input id="mm-valor" inputmode="decimal" placeholder="0" value="${esc(f.valor||'')}" autocomplete="off"></div></div>
     <div class="fld"><label for="mm-desc">Motivo <span class="faint">(opcional)</span></label><input class="input" id="mm-desc" value="${esc(f.desc||'')}" placeholder="Ex.: dinheiro extra do mês" autocomplete="off"></div>
@@ -1536,6 +1542,8 @@ const A={
   newPeca:()=>{ui.np={nome:'',marca:'',cat:'',pago:null,brechoId:S.brechos[0]?.id||'',dropId:prepDrop()?.id||''};ui.modal={kind:'newPeca'};renderLayer();setTimeout(()=>$('np-nome')?.focus(),30)},
   movNew:()=>{ui.mv={id:null,tipo:'in',valor:null,desc:'',data:TODAY};ui.mvDel=false;ui.modal={kind:'mov'};renderLayer()},
   movEdit:el=>{const m=S.movs.find(x=>x.id===el.dataset.id);if(!m)return;ui.mv={id:m.id,tipo:m.v>=0?'in':'out',valor:Math.abs(m.v),desc:m.desc||'',data:m.data};ui.mvDel=false;ui.modal={kind:'mov'};renderLayer()},
+  rvStep:el=>{keepMv();S.settings.reinvest=Math.max(0,Math.min(100,S.settings.reinvest+ +el.dataset.d));renderDesk();renderLayer(true);flushSoon()},
+  mRvStep:el=>{const f=ui.m.mv;f.valor=$('mm-valor').value;f.desc=$('mm-desc').value;S.settings.reinvest=Math.max(0,Math.min(100,S.settings.reinvest+ +el.dataset.d));renderPhone(true);flushSoon()},
   mvTipo:el=>{keepMv();ui.mv.tipo=el.dataset.v;renderLayer(true)},
   movSave:()=>{keepMv();const f=ui.mv;if(!f.valor||f.valor<=0){toast('Digite o valor');$('mv-valor').focus();return}
     const rec={id:f.id||uid('m'),v:(f.tipo==='in'?1:-1)*f.valor,desc:(f.desc||'').trim(),data:f.data||TODAY};
