@@ -441,6 +441,7 @@ canvas.sp-cat.on{opacity:1;transform:none}
 
 .show-s{display:none!important}
 @media (max-width:760px){.top .show-s{display:inline-flex!important;width:36px;height:36px;padding:0}}
+.m-sep{height:1px;background:var(--line2);margin:6px 2px;flex:none}
 .m-gest{background:var(--bg);font:inherit;color:inherit;border:1px solid var(--line2)!important;border-radius:14px!important;padding:14px!important}
 .m-gest .m-gest-ic{width:40px;height:40px;border-radius:12px;background:var(--fill);display:flex;align-items:center;justify-content:center;flex:none}
 .m-gest .m-gest-ic svg{width:20px;height:20px;color:var(--fg)}
@@ -1250,6 +1251,7 @@ function phoneHTML(){
       <div class="m-hero row" style="justify-content:space-between;align-items:flex-start"><div><span class="wordmark">Flopes</span><p>Cadastro de garimpo</p></div>${themeBtn()}</div>
       <div class="budget"><span class="k">Você pode gastar hoje</span><span class="v">${brl0(bd.base)}</span><span class="s">saldo do caixa de reposição, já com a gasolina</span></div>
       ${g?`<button class="btn pri lg full" data-a="mGo" data-v="cap">Continuar garimpo · ${g.items.length} peças</button><button class="btn full" data-a="mCancel">Descartar garimpo em andamento</button>`:`<button class="btn pri lg full" data-a="mStart">${ic('plus',2.2)}Começar garimpo</button>`}<button class="btn full" data-a="mGasto">${ic('despesas')}Registrar gasto com material</button>
+      ${!ui.phonePreview?'<div class="m-sep" role="separator"></div>':''}
       ${!ui.phonePreview?(()=>{const inc=S.pecas.filter(isInc).length,res=S.pecas.filter(p=>p.status==='reservada').length;const hint=[inc&&`${inc} para completar`,res&&`${res} reservada${res>1?'s':''}`].filter(Boolean).join(' · ');
         return `<button class="m-list m-li tap m-gest" data-a="forceDesk" style="width:100%;text-align:left"><span class="m-gest-ic">${ic('painel')}</span><span class="grow"><b>Gestão completa</b><small>${hint||'Drops, peças, vendas, caixa e relatórios'}</small></span>${ic('chev')}</button>`})():''}
       <div class="m-h2"><span>Próximo drop</span></div>
