@@ -439,6 +439,12 @@ canvas.sp-cat.on{opacity:1;transform:none}
 .sp-cat-img{animation:spIn .5s ease both}
 @media (prefers-reduced-motion:reduce){canvas.sp-cat{transition:none}}
 
+.show-s{display:none!important}
+@media (max-width:760px){.top .show-s{display:inline-flex!important;width:36px;height:36px;padding:0}}
+.m-gest{background:var(--bg);font:inherit;color:inherit;border:1px solid var(--line2)!important;border-radius:14px!important;padding:14px!important}
+.m-gest .m-gest-ic{width:40px;height:40px;border-radius:12px;background:var(--fill);display:flex;align-items:center;justify-content:center;flex:none}
+.m-gest .m-gest-ic svg{width:20px;height:20px;color:var(--fg)}
+.m-gest b{font-size:15px}
 /* ---------- app de celular ---------- */
 .m{height:100%;display:flex;flex-direction:column;background:var(--bg);position:relative}
 .m-top{display:flex;align-items:center;gap:8px;padding:14px max(14px,env(safe-area-inset-right,0px)) 10px max(14px,env(safe-area-inset-left,0px));min-height:56px;border-bottom:1px solid var(--line)}
@@ -518,7 +524,7 @@ input[type=date].input::-webkit-calendar-picker-indicator{opacity:.6}
   .mnav a{height:32px;padding:0 12px;border-radius:16px;display:inline-flex;align-items:center;color:var(--muted);font-weight:500;white-space:nowrap}
   .mnav a.on{background:var(--ink);color:var(--ink-fg)}
   .top{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-  .top .sample,.top .hide-s{display:none}
+  .top .sample,.top .hide-s,.content .hide-s{display:none}
   .content{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
   .kpis{grid-template-columns:minmax(0,1fr)}
   .dash>*,.split2>*,.card,.kpi{min-width:0}
@@ -851,7 +857,7 @@ function vPainel(){
       <div class="prog"><b style="width:${s.st*100}%"></b><b style="width:${nr/Math.max(1,s.ps.length)*100}%"></b></div>
       <div class="row" style="justify-content:space-between"><div class="legend"><span><i></i>vendidas</span><span><i class="m"></i>reservadas</span></div><a class="btn sm" href="#drop-${live.n}">Ver drop ${live.n}</a></div></div>`}
   const att=[...res.map(p=>({p,t:'Reservada · cobrar a cliente',a:`<button class="btn sm" data-a="openPeca" data-id="${p.id}">Abrir</button>`})),...stale.map(p=>({p,t:`Parada há ${diff(entry(p),TODAY)} dias`,a:`<button class="btn sm" data-a="applyMd" data-id="${p.id}">Baixar para ${brl0(markdown(p))}</button>`}))].slice(0,7);
-  return head(`${cap(DOW[today.getDay()])}, ${today.getDate()} de ${MESL[today.getMonth()]}`,prep?`Drop ${prep.n} vai ao ar ${DOW[s2d(prep.data).getDay()]}, ${fDay(prep.data)} (${rel(prep.data)}).`:'',`<button class="btn" data-a="phoneOpen">${ic('phone')}Cadastro no celular</button>`)+`
+  return head(`${cap(DOW[today.getDay()])}, ${today.getDate()} de ${MESL[today.getMonth()]}`,prep?`Drop ${prep.n} vai ao ar ${DOW[s2d(prep.data).getDay()]}, ${fDay(prep.data)} (${rel(prep.data)}).`:'',`<button class="btn hide-s" data-a="phoneOpen">${ic('phone')}Cadastro no celular</button>`)+`
   ${settingsCallout()}<div class="kpis">
     ${kpi('Caixa para o próximo garimpo',brl0(caixa()),`inclui ${brl0(sum(ciclo,reposicao))} das vendas desta semana`,{hl:1,icon:'caixa'})}
     ${kpi(`Lucro líquido em ${MESL[today.getMonth()]}`,brl0(lm),dm?`já descontados ${brl0(dm)} de materiais`:lpm?`${lm>=lpm?'+':''}${pct((lm-lpm)/Math.abs(lpm))} vs ${MESL[(today.getMonth()+11)%12]} inteiro`:'',{icon:'relatorios'})}
@@ -1244,11 +1250,13 @@ function phoneHTML(){
       <div class="m-hero row" style="justify-content:space-between;align-items:flex-start"><div><span class="wordmark">Flopes</span><p>Cadastro de garimpo</p></div>${themeBtn()}</div>
       <div class="budget"><span class="k">Você pode gastar hoje</span><span class="v">${brl0(bd.base)}</span><span class="s">saldo do caixa de reposição, já com a gasolina</span></div>
       ${g?`<button class="btn pri lg full" data-a="mGo" data-v="cap">Continuar garimpo · ${g.items.length} peças</button><button class="btn full" data-a="mCancel">Descartar garimpo em andamento</button>`:`<button class="btn pri lg full" data-a="mStart">${ic('plus',2.2)}Começar garimpo</button>`}<button class="btn full" data-a="mGasto">${ic('despesas')}Registrar gasto com material</button>
+      ${!ui.phonePreview?(()=>{const inc=S.pecas.filter(isInc).length,res=S.pecas.filter(p=>p.status==='reservada').length;const hint=[inc&&`${inc} para completar`,res&&`${res} reservada${res>1?'s':''}`].filter(Boolean).join(' · ');
+        return `<button class="m-list m-li tap m-gest" data-a="forceDesk" style="width:100%;text-align:left"><span class="m-gest-ic">${ic('painel')}</span><span class="grow"><b>Gestão completa</b><small>${hint||'Drops, peças, vendas, caixa e relatórios'}</small></span>${ic('chev')}</button>`})():''}
       <div class="m-h2"><span>Próximo drop</span></div>
       <div class="m-list"><div class="m-li"><span class="grow"><b>${nd.name} · ${fDow(nd.date)}</b><small>as peças de hoje entram nele</small></span></div></div>
       <div class="m-h2"><span>Últimos garimpos</span></div>
-      <div class="m-list">${recent.map(x=>`<div class="m-li"><span class="grow"><b>${fDow(x.data)}</b><small>${x.brechoIds.map(i=>esc(B(i)?.nome)).join(', ')}</small></span><span class="r">${pecasDe(x).length} peça${pecasDe(x).length===1?'':'s'}</span></div>`).join('')}</div>
-      <p class="muted" style="font-size:12px;text-align:center;margin:4px 0 0">Tudo fica salvo e aparece no computador, mesmo se faltar sinal agora. Preços, edição e análises ficam no computador.${!ui.phonePreview?` <span class="lnk" data-a="forceDesk">Abrir a gestão aqui mesmo</span>`:''}</p>
+      <div class="m-list">${recent.length?'':'<div class="m-li"><span class="grow muted" style="font-size:13px">Nenhum garimpo ainda.</span></div>'}${recent.map(x=>`<div class="m-li"><span class="grow"><b>${fDow(x.data)}</b><small>${x.brechoIds.map(i=>esc(B(i)?.nome)).join(', ')}</small></span><span class="r">${pecasDe(x).length} peça${pecasDe(x).length===1?'':'s'}</span></div>`).join('')}</div>
+      <p class="muted" style="font-size:12px;text-align:center;margin:4px 0 0">Tudo fica salvo e aparece no computador, mesmo se faltar sinal agora.</p>
     </div></div>`;
   }
   if(m.screen==='gasto'){const f=m.gs;
@@ -1321,7 +1329,7 @@ function renderDesk(){
   $('root').innerHTML=`<div class="desk"><aside class="side"><div class="brand"><span class="wordmark">Flopes</span><small>brechó</small></div>
     <nav class="nav">${NAV.slice(0,2).map(navA).join('')}</nav><div class="navg">Estoque e vendas</div><nav class="nav">${NAV.slice(2,6).map(navA).join('')}</nav><div class="navg">Garimpo</div><nav class="nav">${NAV.slice(6).map(navA).join('')}</nav>
     <div class="side-card"><span class="k">Caixa disponível</span><span class="v num">${brl0(caixa())}</span>${prep?`<span class="muted" style="font-size:12px">Próximo: Drop ${prep.n} · ${fDow(prep.data)}</span>`:''}<button class="btn sm full" data-a="phoneOpen">${ic('phone')}Cadastro no celular</button></div></aside>
-    <div class="mainc"><div class="top"><div class="gsearch">${ic('search')}<input id="gq" placeholder="Buscar peça, marca, código ou brechó  ( / )" value="${esc(ui.gq)}" autocomplete="off" aria-label="Busca geral"><div id="gres"></div></div><span class="spacer"></span>${syncPill()}${themeBtn()}<button class="btn hide-s" data-a="saleNew">Registrar venda</button><button class="btn pri" data-a="newPeca" aria-label="Nova peça">${ic('plus',2)}<span class="hide-s">Nova peça</span></button></div>
+    <div class="mainc"><div class="top"><div class="gsearch">${ic('search')}<input id="gq" placeholder="Buscar peça, marca, código ou brechó  ( / )" value="${esc(ui.gq)}" autocomplete="off" aria-label="Busca geral"><div id="gres"></div></div><span class="spacer"></span>${syncPill()}<button class="btn icon show-s" data-a="mBack" aria-label="Voltar ao cadastro de garimpo" title="Voltar ao cadastro de garimpo">${ic('phone')}</button>${themeBtn()}<button class="btn hide-s" data-a="saleNew">Registrar venda</button><button class="btn pri" data-a="newPeca" aria-label="Nova peça">${ic('plus',2)}<span class="hide-s">Nova peça</span></button></div>
     <nav class="mnav">${NAV.map(([k,l])=>`<a href="#${k}" class="${navOn===k?'on':''}">${l}</a>`).join('')}<a href="#painel" data-a="mBack">Cadastro</a></nav>
     <div class="content">${v}</div></div></div>`;
   if(ui.gq)renderG();
